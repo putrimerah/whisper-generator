@@ -25,7 +25,7 @@ BOLD := \033[1m
 DIM := \033[2m
 OFF := \033[0m
 
-.PHONY: run start dev stop build test check doctor setup install link clean reset update help transcribe env
+.PHONY: run start dev stop build test check doctor setup install link clean reset update help transcribe env privacy
 
 env: .env ## Create .env from .env.example if missing
 
@@ -48,6 +48,7 @@ dev: .env node_modules web/node_modules ## Live-reloading UI (Vite on 5173, API 
 
 stop: ## Stop a server already listening on $(PORT)
 	@pid=$$(ss -lptn "sport = :$(PORT)" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -1) ; \
+	 [ -n "$$pid" ] || pid=$$(lsof -ti tcp:$(PORT) -sTCP:LISTEN 2>/dev/null | head -1) ; \
 	 if [ -n "$$pid" ]; then echo -e "$(DIM)stopping previous server (pid $$pid)$(OFF)"; kill $$pid; sleep 1; fi
 
 ## ---------------------------------------------------------------- build
@@ -81,9 +82,26 @@ web/node_modules: web/package.json
 test: node_modules ## Run the test suite
 	@npm test
 
-check: node_modules ## Typecheck, test, build — run before committing
+check: node_modules privacy ## Typecheck, test, build, privacy scan — run before committing
 	@npm run typecheck && npm test && $(MAKE) --no-print-directory build
 	@echo -e "$(GREEN)all checks passed$(OFF)"
+
+privacy: ## Scan tracked files for this machine's usernames, tokens and media
+	@fail=0 ; \
+	 user=$$(id -un) ; \
+	 win=$$(ls /mnt/c/Users 2>/dev/null | grep -viE '^(public|default|default user|all users|defaultaccount|wdagutilityaccount|desktop.ini)$$' | head -1) ; \
+	 for term in "$$user" "$$win" ; do \
+	   [ -n "$$term" ] || continue ; \
+	   if git grep -niI -- "$$term" -- . >/dev/null 2>&1 ; then \
+	     echo -e "\033[31mleak:\033[0m tracked files mention '$$term'" ; \
+	     git grep -niI -- "$$term" -- . | head -5 ; fail=1 ; fi ; \
+	 done ; \
+	 if git grep -nE 'hf_[A-Za-z0-9]{20,}' -- . 2>/dev/null | grep -qvE 'your_token|x{8}' ; then \
+	   echo -e "\033[31mleak:\033[0m a HuggingFace token looks committed" ; fail=1 ; fi ; \
+	 if git ls-files | grep -qiE '\.(mp4|mkv|wav|mp3|srt|vtt)$$|^medias/|^\.env$$' ; then \
+	   echo -e "\033[31mleak:\033[0m media, transcripts or .env are tracked" ; fail=1 ; fi ; \
+	 if [ $$fail -eq 0 ] ; then echo -e "$(GREEN)privacy scan clean$(OFF)" ; else \
+	   echo "fix the above before publishing" ; exit 1 ; fi
 
 doctor: dist/cli.js ## Check ffmpeg, Whisper, CUDA libraries, VRAM vs model
 	@$(NODE) dist/cli.js doctor
@@ -111,7 +129,7 @@ update: ## Pull, reinstall dependencies, rebuild
 
 ## ---------------------------------------------------------------- misc
 
-transcribe: dist/cli.js ## Transcribe from the terminal: make transcribe FILE=path [ARGS="--attendees Irfan"]
+transcribe: dist/cli.js ## Transcribe from the terminal: make transcribe FILE=path [ARGS="--attendees Alice"]
 	@test -n "$(FILE)" || { echo "usage: make transcribe FILE=<path> [ARGS=\"--attendees 'A,B'\"]"; exit 1; }
 	@$(NODE) dist/cli.js run "$(FILE)" $(ARGS)
 

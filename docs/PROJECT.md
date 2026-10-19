@@ -18,13 +18,21 @@ prompt, run. Now: one command, or one form in a browser.
 
 ## 2. Who runs it, and where
 
+The reference machine is described below. The code never hardcodes any of it:
+usernames are discovered, folders are detected per platform, and everything is
+overridable through `.env`. It also runs on plain Linux and macOS, where the
+Windows-specific paths fall back to `~/Videos` or `~/Movies` and
+`~/Documents/transcripts`.
+
+
 | | |
 |---|---|
 | Host | Windows 11, single 512 GB SSD, drive `C:` only |
-| Dev + runtime | WSL2, distro `Ubuntu22` |
+| Publishing | repo is public; `make privacy` scans tracked files for the local username, tokens and media before every commit |
+| Dev + runtime | WSL2, distro `Ubuntu` |
 | GPU | RTX 4050 Laptop, **6 GB VRAM** — the binding constraint |
-| Recordings | `C:\Users\mirfa\Videos` (local, not synced) |
-| Transcripts | `C:\Users\mirfa\OneDrive\Documents\transcripts` (synced, backed up) |
+| Recordings | `C:\Users\you\Videos` (local, not synced) |
+| Transcripts | `C:\Users\you\OneDrive\Documents\transcripts` (synced, backed up) |
 | Windows Documents/Desktop | **redirected into OneDrive**; the plain folders are stubs |
 | Browser | on Windows, reaching the WSL server over forwarded `localhost` |
 
@@ -34,7 +42,7 @@ Windows binaries through `powershell.exe` interop.
 ## 3. Pipeline
 
 ```
-C:\Users\mirfa\Videos\meeting.mp4      READ ONLY. never moved, renamed, deleted
+C:\Users\you\Videos\meeting.mp4      READ ONLY. never moved, renamed, deleted
         │  ffmpeg -vn -ac 1 -ar 16000  (one pass, onto fast storage)
         ▼
 ~/.wg/work/<jobId>/<stem>.wav          ours, temporary
@@ -225,7 +233,7 @@ Same 45-second clip:
 | `unrecognized arguments: --output_format srt,vtt` | comma list | `outputFormatArg()` |
 | Outputs named `audio.16k.srt` | wav lacked the source stem | `wavPathFor(dir, stem)` |
 | Opaque I/O error writing to `/mnt` | NTFS-illegal characters in the stem | `sanitizeForWindows()` |
-| C: free space never grows after deleting WSL files | vhdx does not auto-shrink | `wsl --shutdown` then `wsl --manage Ubuntu22 --set-sparse true` |
+| C: free space never grows after deleting WSL files | vhdx does not auto-shrink | `wsl --shutdown` then `wsl --manage Ubuntu --set-sparse true` |
 | OneDrive file unreadable from WSL | cloud-only placeholder | "Always keep on this device" |
 | Two jobs OOM the GPU | parallel transcription | queue depth 1 |
 
@@ -251,6 +259,6 @@ bash scripts/install-wsl.sh   # user-level install, no sudo
 - LLM summaries in-app (needs a provider decision; today the AI export covers
   it by hand).
 - Watch folder for drop-in transcription.
-- Real glossary content: `Sybil`, `Janaya`, `Godot`, `Judgement` are phonetic
+- Real glossary content: `Atlas`, `Orion`, `Godot`, `Judgement` are phonetic
   guesses at Malay words. The user fixes these through the transcript viewer's
   "add to glossary" action.

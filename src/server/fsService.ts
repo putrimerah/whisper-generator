@@ -6,6 +6,7 @@ import {
   pickWindowsUser,
   sanitizeForWindows,
   toWslPath,
+  userMediaDir,
   windowsSpecialFolder,
 } from "../platform.ts";
 import { forbiddenPath, notFound } from "./errors.ts";
@@ -132,9 +133,9 @@ export function defaultBrowsePath(browseRoot = ""): string | null {
     if (existsSync(configured)) return configured;
   }
   const winHome = windowsUserDir();
-  if (!winHome) return null;
-  const videos = join(winHome, "Videos");
-  return existsSync(videos) ? videos : winHome;
+  if (winHome) return userMediaDir(winHome, "windows") ?? winHome;
+  // Plain Linux or macOS: the local media folder, else the home directory.
+  return userMediaDir(homedir()) ?? homedir();
 }
 
 /** Windows profile discovered at runtime; never hardcode a username. */
@@ -167,7 +168,17 @@ export function favorites(outputRoot: string, browseRoot = ""): Favorite[] {
       { label: "Desktop", path: windowsSpecialFolder(winHome, "Desktop") },
     );
   }
-  list.push({ label: "WSL home", path: homedir() });
+  if (winHome) {
+    list.push({ label: "WSL home", path: homedir() });
+  } else {
+    // No Windows mounts: offer the standard local folders instead.
+    const media = userMediaDir(homedir());
+    if (media) list.push({ label: basename(media), path: media });
+    for (const name of ["Downloads", "Documents", "Desktop"]) {
+      list.push({ label: name, path: join(homedir(), name) });
+    }
+    list.push({ label: "Home", path: homedir() });
+  }
   const out = resolve(toWslPath(outputRoot));
   list.push({ label: "Transcripts", path: out });
   const seen = new Set<string>();

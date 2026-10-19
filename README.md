@@ -5,11 +5,15 @@
 Turns the 8-step copy-paste ritual into one command:
 
 ```bash
-wg run "C:/recordings/standup.mp4" --attendees "Irfan,Aisyah" --context "Weekly sprint review"
+wg run "C:/recordings/standup.mp4" --attendees "Alice,Bob" --context "Weekly sprint review"
 ```
 
 It extracts audio (optional), builds a token-budgeted Whisper `initial_prompt`,
 runs OpenAI Whisper, and writes a `meeting.json` sidecar so a run is reproducible.
+
+Runs on **WSL2** (Windows recordings, GPU via the Windows driver), and on
+**plain Linux or macOS** with the same commands. Paths, favorites and the
+browser opener adapt to the host; nothing is hardcoded to one machine.
 
 ## One command
 
@@ -81,13 +85,13 @@ CLI flags  >  .env  >  wg.config.json  >  built-in defaults
 `.env.example` on your first `make`. Put folders and tokens there.
 
 ```ini
-WG_BROWSE_ROOT=C:\Users\mirfa\Videos                              # picker opens here
-WG_OUTPUT_ROOT=C:\Users\mirfa\OneDrive\Documents\transcripts      # transcripts land here
+WG_BROWSE_ROOT=C:\Users\you\Videos                              # picker opens here
+WG_OUTPUT_ROOT=C:\Users\you\OneDrive\Documents\transcripts      # transcripts land here
 WG_MODEL=large-v3
 WG_LANGUAGE=en
 WG_KEEP_AUDIO=false
-#WG_ATTENDEES=Irfan
-#WG_TERMS=Kafka,Sybil
+#WG_ATTENDEES=Alice
+#WG_TERMS=Kafka,Atlas
 #WG_HF_TOKEN=hf_...        # speaker labels
 #WG_PORT=7788
 ```
@@ -113,11 +117,23 @@ target is on a Windows drive.
   "outputRoot": "C:\\Users\\you\\Documents\\transcripts",
   "outputFormats": ["srt", "vtt", "txt", "json"],
   "extractAudio": false,
-  "attendees": ["Irfan"],
+  "attendees": ["Alice"],
   "terms": ["Kafka", "CTranslate2"],
   "context": "Engineering team meeting"
 }
 ```
+
+## Platform notes
+
+| | WSL2 | Linux | macOS |
+|---|---|---|---|
+| Recordings default | Windows `Videos` | `~/Videos` | `~/Movies` |
+| Transcripts default | Windows `Documents/transcripts` (follows the OneDrive redirect) | `~/Documents/transcripts` | `~/Documents/transcripts` |
+| Free space measured on | the Windows drive backing `ext4.vhdx` | the target filesystem | the target filesystem |
+| `--open` uses | `powershell.exe` | `xdg-open` | `open` |
+| NTFS filename sanitising | on `/mnt/*` targets | not needed | not needed |
+
+Override any of it in `.env`.
 
 ## Where Whisper runs
 

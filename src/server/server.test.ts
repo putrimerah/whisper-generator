@@ -7,6 +7,8 @@ import { JobStore } from "./jobStore.ts";
 import { makeJobId, TERMINAL_STATES } from "./jobTypes.ts";
 import { isPathAllowed, planOutputTarget, toWindowsDisplayPath, isMediaPath, nextFreeDir, defaultBrowsePath } from "./fsService.ts";
 import { readEnvSettings } from "../env.ts";
+import { userMediaDir } from "../platform.ts";
+import { DEFAULT_CONFIG, defaultOutputRoot } from "../config.ts";
 import { estimateNeeded, formatBytes, SAFETY_MARGIN_BYTES } from "./disk.ts";
 import { cleanupWorkspace, wavPathFor } from "./workspace.ts";
 import { parseSrt, srtTimeToSeconds } from "./routes/meetings.ts";
@@ -119,7 +121,7 @@ test("media classification", () => {
 test("windows display paths", () => {
   assert.equal(toWindowsDisplayPath("/mnt/c/Users/x"), "C:\\Users\\x");
   assert.equal(toWindowsDisplayPath("/mnt/d"), "D:\\");
-  assert.equal(toWindowsDisplayPath("/home/irfan"), null);
+  assert.equal(toWindowsDisplayPath("/home/you"), null);
 });
 
 test("output stems are sanitised only for windows targets", () => {
@@ -206,12 +208,12 @@ test("ai export merges segments into timestamped paragraphs", () => {
 
 test("ai export breaks paragraphs on speaker change", () => {
   const segments = [
-    { id: 0, start: 0, end: 2, text: "Hi", speaker: "Irfan" },
-    { id: 1, start: 2, end: 4, text: "Hello", speaker: "Aisyah" },
+    { id: 0, start: 0, end: 2, text: "Hi", speaker: "Alice" },
+    { id: 1, start: 2, end: 4, text: "Hello", speaker: "Bob" },
   ];
   const paragraphs = groupSegments(segments, 60);
   assert.equal(paragraphs.length, 2);
-  assert.equal(paragraphs[1]?.speaker, "Aisyah");
+  assert.equal(paragraphs[1]?.speaker, "Bob");
 });
 
 test("ai export is cheaper than srt and far cheaper than json", () => {
@@ -241,7 +243,7 @@ test("env settings override config, windows paths converted", () => {
   process.env.WG_OUTPUT_ROOT = "D:/transcripts";
   process.env.WG_MODEL = "medium";
   process.env.WG_KEEP_AUDIO = "true";
-  process.env.WG_TERMS = "Kafka, Sybil ,";
+  process.env.WG_TERMS = "Kafka, Atlas ,";
   process.env.WG_PORT = "9001";
 
   const env = readEnvSettings("/nonexistent-dir-so-no-dotenv-is-read");
@@ -249,7 +251,7 @@ test("env settings override config, windows paths converted", () => {
   assert.equal(env.config.outputRoot, "/mnt/d/transcripts");
   assert.equal(env.config.model, "medium");
   assert.equal(env.config.keepAudio, true);
-  assert.deepEqual(env.config.terms, ["Kafka", "Sybil"]);
+  assert.deepEqual(env.config.terms, ["Kafka", "Atlas"]);
   assert.equal(env.port, 9001);
 
   process.env = previous;
@@ -269,4 +271,35 @@ test("absent env vars leave config untouched", () => {
 test("browse path falls back when the configured root is missing", () => {
   // A stale WG_BROWSE_ROOT must not strand the picker on a dead path.
   assert.notEqual(defaultBrowsePath("/mnt/c/definitely-not-here"), "/mnt/c/definitely-not-here");
+});
+
+test("favorites fall back to local folders without windows mounts", () => {
+  // Plain Linux or macOS: no /mnt/c, so the picker must still be useful.
+  const home = mkdtempSync(join(tmpdir(), "wg-home-"));
+  mkdirSync(join(home, "Videos"));
+  assert.equal(userMediaDir(home, "linux"), join(home, "Videos"));
+  assert.equal(userMediaDir(home, "macos"), join(home, "Videos"));
+
+  const mac = mkdtempSync(join(tmpdir(), "wg-mac-"));
+  mkdirSync(join(mac, "Movies"));
+  // macOS prefers Movies over Videos.
+  assert.equal(userMediaDir(mac, "macos"), join(mac, "Movies"));
+  assert.equal(userMediaDir(mkdtempSync(join(tmpdir(), "wg-bare-")), "linux"), null);
+
+  rmSync(home, { recursive: true, force: true });
+  rmSync(mac, { recursive: true, force: true });
+});
+
+test("output root never lands inside the repository", () => {
+  // ./out would pollute a cloned checkout; Documents or ~/transcripts instead.
+  const root = defaultOutputRoot();
+  assert.ok(root.startsWith("/"), `expected an absolute path, got ${root}`);
+  assert.ok(!root.includes("whisper-generator"), `output root must not be in the repo: ${root}`);
+});
+
+test("default config resolves paths at runtime, never from literals", () => {
+  // Defaults must be derived from the host, so a clone picks up its own user.
+  // Privacy of committed files is checked separately by `make privacy`.
+  assert.ok(DEFAULT_CONFIG.outputRoot.startsWith("/"));
+  assert.equal(DEFAULT_CONFIG.browseRoot, "");
 });

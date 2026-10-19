@@ -8,10 +8,10 @@ import type { ExecutionPlan } from "./types.ts";
 test("prompt keeps participants and glossary last", () => {
   const r = buildPrompt({
     context: "Sprint review for the billing service",
-    attendees: ["Irfan", "Aisyah"],
+    attendees: ["Alice", "Bob"],
     terms: ["Kafka", "mesyuarat"],
   });
-  assert.match(r.prompt, /Participants: Irfan, Aisyah\./);
+  assert.match(r.prompt, /Participants: Alice, Bob\./);
   assert.ok(r.prompt.indexOf("Terms used") > r.prompt.indexOf("Participants"));
   assert.equal(r.truncated, false);
 });
@@ -19,18 +19,18 @@ test("prompt keeps participants and glossary last", () => {
 test("oversized context is dropped before names", () => {
   const r = buildPrompt({
     context: "word ".repeat(400),
-    attendees: ["Irfan", "Lee"],
+    attendees: ["Alice", "Lee"],
     terms: ["CTranslate2"],
   });
   assert.ok(r.tokens <= PROMPT_TOKEN_BUDGET);
-  assert.match(r.prompt, /Irfan/);
+  assert.match(r.prompt, /Alice/);
   assert.match(r.prompt, /CTranslate2/);
   assert.deepEqual(r.dropped.includes("context"), true);
 });
 
 test("duplicate and blank names are removed", () => {
-  const r = buildPrompt({ attendees: ["Irfan", " irfan ", "", "Lee"] });
-  assert.match(r.prompt, /Participants: Irfan, Lee\./);
+  const r = buildPrompt({ attendees: ["Alice", " alice ", "", "Bob"] });
+  assert.match(r.prompt, /Participants: Alice, Bob\./);
 });
 
 test("token estimate is conservative", () => {
@@ -50,16 +50,16 @@ test("rendered powershell command uses call operator", () => {
 });
 
 test("windows paths convert to wsl paths, posix paths pass through", () => {
-  assert.equal(toWslPath("C:\\Users\\mirfa\\Videos"), "/mnt/c/Users/mirfa/Videos");
+  assert.equal(toWslPath("C:\\Users\\you\\Videos"), "/mnt/c/Users/you/Videos");
   assert.equal(toWslPath("D:/meetings/out"), "/mnt/d/meetings/out");
-  assert.equal(toWslPath("/home/irfan/out"), "/home/irfan/out");
-  assert.equal(toWslPath('"C:\\Users\\mirfa"'), "/mnt/c/Users/mirfa");
+  assert.equal(toWslPath("/home/you/out"), "/home/you/out");
+  assert.equal(toWslPath('"C:\\Users\\you"'), "/mnt/c/Users/you");
 });
 
 test("windows mount detection", () => {
-  assert.equal(isOnWindowsMount("/mnt/c/Users/mirfa"), true);
+  assert.equal(isOnWindowsMount("/mnt/c/Users/you"), true);
   assert.equal(isOnWindowsMount("/mnt/d"), true);
-  assert.equal(isOnWindowsMount("/home/irfan/out"), false);
+  assert.equal(isOnWindowsMount("/home/you/out"), false);
   assert.equal(isOnWindowsMount("/mnt/wsl/something"), false);
 });
 
@@ -72,8 +72,8 @@ test("stems are sanitised for NTFS targets", () => {
 });
 
 test("windows user discovery skips system profiles", () => {
-  const entries = ["Public", "Default", "All Users", "desktop.ini", "mirfa"];
-  const picked = pickWindowsUser(entries, (n) => n === "mirfa");
-  assert.equal(picked, "mirfa");
+  const entries = ["Public", "Default", "All Users", "desktop.ini", "you"];
+  const picked = pickWindowsUser(entries, (n) => n === "you");
+  assert.equal(picked, "you");
   assert.equal(pickWindowsUser(["Public", "Default"], () => true), null);
 });

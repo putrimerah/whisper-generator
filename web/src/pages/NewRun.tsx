@@ -165,7 +165,7 @@ export default function NewRun() {
       <Card title="2 · Meeting details">
         <div className="space-y-4">
           <Field label="Attendees" hint="Names appear in the prompt so Whisper spells them correctly.">
-            <ChipInput value={attendees} onChange={setAttendees} placeholder="Irfan, Aisyah…" suggestions={knownAttendees} />
+            <ChipInput value={attendees} onChange={setAttendees} placeholder="Alice, Bob…" suggestions={knownAttendees} />
           </Field>
 
           <Field label="Context">
@@ -179,7 +179,7 @@ export default function NewRun() {
           </Field>
 
           <Field label="Glossary terms" hint="Project names, acronyms, Malay words — anything Whisper would otherwise spell phonetically.">
-            <ChipInput value={terms} onChange={setTerms} placeholder="Kafka, Sybil…" suggestions={knownTerms} />
+            <ChipInput value={terms} onChange={setTerms} placeholder="Kafka, Atlas…" suggestions={knownTerms} />
           </Field>
 
           <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">

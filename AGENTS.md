@@ -29,6 +29,12 @@ Other documents:
 7. **Server code takes no runtime dependencies.** `node:` built-ins only. The
    web client's dependency list is fixed; adding to it needs a reason.
 8. **One transcription at a time.** 6 GB of VRAM fits exactly one `large-v3`.
+9. **This repo is public.** Never commit a real username, home directory,
+   token, recording, transcript, or meeting name. Use `you`, `Alice`, `Bob`
+   and generic project names in examples. `make privacy` enforces this and
+   runs as part of `make check`.
+10. **Do not assume WSL.** Linux and macOS must work too: detect the platform
+    rather than hardcoding `/mnt/c`, `powershell.exe` or `wslpath`.
 
 ## Before committing
 

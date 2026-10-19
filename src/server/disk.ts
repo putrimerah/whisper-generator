@@ -1,5 +1,6 @@
 import { statfs } from "node:fs/promises";
-import { isOnWindowsMount } from "../platform.ts";
+import { homedir } from "node:os";
+import { hasWindowsMounts, isOnWindowsMount } from "../platform.ts";
 import { diskFull } from "./errors.ts";
 import { WAV_BYTES_PER_SECOND } from "./probe.ts";
 
@@ -17,7 +18,9 @@ export const LOW_SPACE_WARNING_BYTES = 5_000_000_000;
 export async function freeBytesFor(targetPath: string): Promise<number> {
   const probePath = isOnWindowsMount(targetPath)
     ? targetPath.split("/").slice(0, 3).join("/")
-    : "/mnt/c";
+    : hasWindowsMounts()
+      ? "/mnt/c" // WSL: writes grow ext4.vhdx, which lives on C:
+      : targetPath; // plain Linux or macOS: the filesystem is the truth
   try {
     const { bavail, bsize } = await statfs(probePath);
     return Number(bavail) * Number(bsize);
@@ -61,7 +64,7 @@ export async function diskReport(outputRoot: string): Promise<{
   warning: string | null;
 }> {
   const [windowsFreeBytes, outputFreeBytes] = await Promise.all([
-    freeBytesFor("/mnt/c"),
+    freeBytesFor(hasWindowsMounts() ? "/mnt/c" : homedir()),
     freeBytesFor(outputRoot),
   ]);
   const lowest = Math.min(windowsFreeBytes, outputFreeBytes);
@@ -70,8 +73,10 @@ export async function diskReport(outputRoot: string): Promise<{
     outputFreeBytes,
     warning:
       lowest < LOW_SPACE_WARNING_BYTES
-        ? `Only ${formatBytes(lowest)} free. Transcription may fail. ` +
-          `Reclaim WSL space with: wsl --shutdown, then wsl --manage <distro> --set-sparse true`
+        ? `Only ${formatBytes(lowest)} free. Transcription may fail.` +
+          (hasWindowsMounts()
+            ? ` Reclaim WSL space with: wsl --shutdown, then wsl --manage <distro> --set-sparse true`
+            : "")
         : null,
   };
 }

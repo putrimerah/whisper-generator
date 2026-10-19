@@ -46,7 +46,7 @@ export default function Health() {
         </p>
         <pre className="mt-2 rounded bg-slate-950 p-3 font-mono text-xs text-slate-300">
 {`wsl --shutdown
-wsl --manage Ubuntu22 --set-sparse true`}
+wsl --manage Ubuntu --set-sparse true`}
         </pre>
       </Card>
     </div>

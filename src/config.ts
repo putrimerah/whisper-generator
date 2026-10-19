@@ -6,13 +6,18 @@ import { windowsSpecialFolder, windowsUserHome } from "./platform.ts";
 import type { Config } from "./types.ts";
 
 /**
- * Transcripts default to the Documents folder, which on this machine is
- * redirected into OneDrive, so every transcript is backed up and reachable
- * from other devices. Falls back to ./out without a Windows profile.
+ * Transcripts go to the user's Documents folder when there is one.
+ *
+ * Under WSL that means the Windows profile, following the OneDrive redirect
+ * when Windows has set one up, so transcripts are visible in Explorer and
+ * backed up. On plain Linux or macOS it is the local Documents folder, or
+ * ~/transcripts when that does not exist.
  */
 export function defaultOutputRoot(): string {
-  const home = windowsUserHome();
-  return home ? join(windowsSpecialFolder(home, "Documents"), "transcripts") : "./out";
+  const windowsHome = windowsUserHome();
+  if (windowsHome) return join(windowsSpecialFolder(windowsHome, "Documents"), "transcripts");
+  const local = join(homedir(), "Documents");
+  return existsSync(local) ? join(local, "transcripts") : join(homedir(), "transcripts");
 }
 
 /** Whisper installed by scripts/install-wsl.sh, outside any project directory. */

@@ -105,6 +105,24 @@ export function windowsUserHome(): string | null {
   return user ? join(root, user) : null;
 }
 
+/**
+ * Platform-appropriate media folder: Videos on Windows and Linux, Movies on
+ * macOS. Returns null when none of them exists.
+ */
+export function userMediaDir(home: string, host: Host = detectHost()): string | null {
+  const candidates = host === "macos" ? ["Movies", "Videos"] : ["Videos", "Movies"];
+  for (const name of candidates) {
+    const dir = join(home, name);
+    if (existsSync(dir)) return dir;
+  }
+  return null;
+}
+
+/** True when running under WSL with Windows drives mounted. */
+export function hasWindowsMounts(): boolean {
+  return existsSync("/mnt/c");
+}
+
 /** True when the path lives on a mounted Windows drive (NTFS via drvfs). */
 export function isOnWindowsMount(p: string): boolean {
   return /^\/mnt\/[a-z](\/|$)/i.test(p);

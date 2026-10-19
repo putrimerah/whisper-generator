@@ -25,7 +25,7 @@ Do not start a task until the previous one passes its criteria.
    the server. The allowed client dependency list is section 9.1. Adding any
    other dependency requires stopping and asking.
 4. **Every file path in this document is relative to the repository root**
-   `/home/irfan/works/whisper-generator` unless stated otherwise.
+   `/path/to/whisper-generator` unless stated otherwise.
 5. **Never delete, move, rename, or overwrite a file the user did not create
    through this app.** Source recordings are read-only inputs. Writing NEW
    transcript files into the user-configured output directory is allowed, even
@@ -91,22 +91,22 @@ These values were measured on the target machine. Do not assume different ones.
 |---|---|
 | Host OS | Windows 11, single 512 GB SSD, drive `C:` only |
 | C: free space | ~27 GB (TIGHT — section 5.5 depends on this) |
-| WSL distro | `Ubuntu22`, WSL2 |
-| WSL vhdx location | `C:\WSL\Ubuntu22\ext4.vhdx`, ~59 GB, dynamically expanding |
+| WSL distro | `Ubuntu`, WSL2 |
+| WSL vhdx location | `C:\WSL\Ubuntu\ext4.vhdx`, ~59 GB, dynamically expanding |
 | **WSL `df` is misleading** | Reports ~904 GB free. The real limit is C: free space. Always compute free space from `/mnt/c` |
 | GPU | NVIDIA RTX 4050 Laptop, 6 GB VRAM, driver 581.86 |
-| Node | v24.11.1 at `/home/irfan/.nvm/versions/node/v24.11.1/bin/node` |
-| Python (venv) | 3.10.12 at `/home/irfan/.wg/venv/bin/python` |
-| ffmpeg | `/home/irfan/.local/bin/ffmpeg` (static build, user-level) |
-| ffprobe | `/home/irfan/.local/bin/ffprobe` |
-| Whisper CLI | `/home/irfan/.wg/venv/bin/whisper-ctranslate2` v0.5.8 |
+| Node | v24.11.1 at `/home/you/.nvm/versions/node/v24.11.1/bin/node` |
+| Python (venv) | 3.10.12 at `/home/you/.wg/venv/bin/python` |
+| ffmpeg | `/home/you/.local/bin/ffmpeg` (static build, user-level) |
+| ffprobe | `/home/you/.local/bin/ffprobe` |
+| Whisper CLI | `/home/you/.wg/venv/bin/whisper-ctranslate2` v0.5.8 |
 | faster-whisper | 1.2.1 |
 | ctranslate2 | 4.8.3, CUDA device count 1 |
 | CUDA libs | `nvidia-cublas-cu12` 12.9.2.10, `nvidia-cudnn-cu12` 9.27.0.42, inside the venv |
 | Model in use | `large-v3` at `int8_float16` (~3.5 GB VRAM, fits the 6 GB GPU). The user chose quality over speed; do not change this default to a smaller model |
 | Default outputRoot | `<windows user>/Documents/transcripts`, discovered at runtime |
 | Model cache | `~/.cache/huggingface`, ~3.1 GB |
-| Windows user | `mirfa`; home is `/mnt/c/Users/mirfa` from WSL |
+| Windows user | `you`; home is `/mnt/c/Users/you` from WSL |
 | Measured speed | 60 s of audio → 26 s wall clock (~2.3× realtime) including model load |
 
 ### 2.1 Facts the implementer will get wrong without warning
@@ -278,7 +278,7 @@ Using `all` produces all five.
 ## 4. ARCHITECTURE
 
 ```
-WINDOWS                                WSL (Ubuntu22)
+WINDOWS                                WSL (Ubuntu)
 ┌───────────────────┐                  ┌──────────────────────────────────────┐
 │ Browser (Edge)    │  localhost:7788  │ wg ui   node:http server             │
 │  React SPA        │◄────────────────►│  ├─ GET  /                static SPA │
@@ -286,9 +286,9 @@ WINDOWS                                WSL (Ubuntu22)
 └───────────────────┘   by WSL2        │  └─ SSE  /api/jobs/:id/stream        │
                                        │             │                        │
   recordings live at                   │             ▼                        │
-  C:\Users\mirfa\Videos\...            │   ffmpeg ──────────► whisper ──────► │
+  C:\Users\you\Videos\...            │   ffmpeg ──────────► whisper ──────► │
   READ ONLY, never modified            │   (extract audio)    (transcribe)    │
-  visible as /mnt/c/Users/mirfa/...    │             │                        │
+  visible as /mnt/c/Users/you/...    │             │                        │
                                        │             ▼                        │
                                        │   ~/.wg/work/<jobId>/  (temp)        │
                                        │   <outputRoot>/<stem>/ (results)     │
@@ -394,10 +394,10 @@ accepted and normalised:
 
 | Input form | Stored/used as |
 |---|---|
-| `C:\\Users\\mirfa\\Documents\\transcripts` | `/mnt/c/Users/mirfa/Documents/transcripts` |
-| `C:/Users/mirfa/Documents/transcripts` | same |
-| `/mnt/c/Users/mirfa/Documents/transcripts` | unchanged |
-| `/home/irfan/transcripts` | unchanged |
+| `C:\\Users\\you\\Documents\\transcripts` | `/mnt/c/Users/you/Documents/transcripts` |
+| `C:/Users/you/Documents/transcripts` | same |
+| `/mnt/c/Users/you/Documents/transcripts` | unchanged |
+| `/home/you/transcripts` | unchanged |
 | `./out` | resolved against the working directory |
 
 **Default.** `defaultOutputRoot()` in `src/config.ts` returns
@@ -491,7 +491,7 @@ not return on its own. The Health screen must show this hint verbatim:
 
 ```
 wsl --shutdown
-wsl --manage Ubuntu22 --set-sparse true
+wsl --manage Ubuntu --set-sparse true
 ```
 
 Run from PowerShell, once. Display it as information, never execute it.
@@ -621,12 +621,12 @@ Response:
 
 ```json
 {
-  "path": "/mnt/c/Users/mirfa/Videos",
-  "windowsPath": "C:\\Users\\mirfa\\Videos",
-  "parent": "/mnt/c/Users/mirfa",
+  "path": "/mnt/c/Users/you/Videos",
+  "windowsPath": "C:\\Users\\you\\Videos",
+  "parent": "/mnt/c/Users/you",
   "entries": [
-    { "name": "recordings", "type": "dir",  "path": "/mnt/c/Users/mirfa/Videos/recordings" },
-    { "name": "standup.mp4", "type": "file", "path": "/mnt/c/Users/mirfa/Videos/standup.mp4",
+    { "name": "recordings", "type": "dir",  "path": "/mnt/c/Users/you/Videos/recordings" },
+    { "name": "standup.mp4", "type": "file", "path": "/mnt/c/Users/you/Videos/standup.mp4",
       "size": 734003200, "mtime": "2026-10-19T09:12:00.000Z", "media": true }
   ]
 }
@@ -648,23 +648,23 @@ Rules:
 ```json
 {
   "favorites": [
-    { "label": "Videos",    "path": "/mnt/c/Users/mirfa/Videos" },
-    { "label": "Downloads", "path": "/mnt/c/Users/mirfa/Downloads" },
-    { "label": "Desktop",   "path": "/mnt/c/Users/mirfa/Desktop" },
-    { "label": "WSL home",  "path": "/home/irfan" },
-    { "label": "Transcripts", "path": "/mnt/c/Users/mirfa/Documents/transcripts" }
+    { "label": "Videos",    "path": "/mnt/c/Users/you/Videos" },
+    { "label": "Downloads", "path": "/mnt/c/Users/you/Downloads" },
+    { "label": "Desktop",   "path": "/mnt/c/Users/you/Desktop" },
+    { "label": "WSL home",  "path": "/home/you" },
+    { "label": "Transcripts", "path": "/mnt/c/Users/you/Documents/transcripts" }
   ]
 }
 ```
 
 Derive the Windows username from `/mnt/c/Users` by picking the directory that
 contains `Videos` or `Desktop`. Omit entries whose path does not exist. Do not
-hardcode `mirfa` in source; discover it.
+hardcode `you` in source; discover it.
 
 **`POST /api/fs/resolve`** — converts a pasted Windows path.
 
-Request: `{ "path": "C:\\Users\\mirfa\\Videos\\standup.mp4" }`
-Response: `{ "path": "/mnt/c/Users/mirfa/Videos/standup.mp4", "exists": true, "media": true, "size": 734003200 }`
+Request: `{ "path": "C:\\Users\\you\\Videos\\standup.mp4" }`
+Response: `{ "path": "/mnt/c/Users/you/Videos/standup.mp4", "exists": true, "media": true, "size": 734003200 }`
 
 Implementation: run `wslpath -u <input>`. If that fails, fall back to a manual
 transform (`C:\x\y` → `/mnt/c/x/y`, backslashes to slashes, drive letter
@@ -678,7 +678,7 @@ Runs `ffprobe -v error -show_format -show_streams -of json <path>` and returns:
 
 ```json
 {
-  "path": "/mnt/c/Users/mirfa/Videos/standup.mp4",
+  "path": "/mnt/c/Users/you/Videos/standup.mp4",
   "durationSeconds": 1038.06,
   "sizeBytes": 734003200,
   "hasVideo": true,
@@ -698,7 +698,7 @@ results in memory keyed by `path + mtime + size`.
 
 Request:
 ```json
-{ "context": "Weekly sprint review", "attendees": ["Irfan","Aisyah"], "terms": ["Kafka"] }
+{ "context": "Weekly sprint review", "attendees": ["Alice","Bob"], "terms": ["Kafka"] }
 ```
 Response (straight from `buildPrompt()`, plus the budget):
 ```json
@@ -715,10 +715,10 @@ Request (all fields required unless marked optional):
 
 ```json
 {
-  "input": "/mnt/c/Users/mirfa/Videos/standup.mp4",
-  "outDir": "/mnt/c/Users/mirfa/Documents/transcripts/standup",
-  "attendees": ["Irfan", "Aisyah"],
-  "terms": ["Kafka", "Sybil"],
+  "input": "/mnt/c/Users/you/Videos/standup.mp4",
+  "outDir": "/mnt/c/Users/you/Documents/transcripts/standup",
+  "attendees": ["Alice", "Bob"],
+  "terms": ["Kafka", "Atlas"],
   "context": "Weekly sprint review",
   "model": "large-v3",
   "language": "en",
@@ -808,7 +808,7 @@ mark any job in a non-terminal state as `failed` with message
 **`GET /api/meetings/:dir/transcript`** — parsed segments for the viewer:
 
 ```json
-{ "segments": [ { "id": 0, "start": 0.0, "end": 3.0, "text": "Irfan, are you coming tomorrow, or...?" } ],
+{ "segments": [ { "id": 0, "start": 0.0, "end": 3.0, "text": "Alice, are you coming tomorrow, or...?" } ],
   "language": "en", "duration": 1038.06 }
 ```
 
@@ -1050,7 +1050,7 @@ a WSL target.
 **Do:** Run `ffprobe` with the exact arguments in section 7.2, parse JSON,
 compute `estimatedWavBytes` and `estimatedTranscribeSeconds`, cache by
 `path+mtime+size`.
-**Acceptance:** returns correct duration for `medias/ai_module_clarity.mp4`;
+**Acceptance:** returns correct duration for `medias/team-sync.mp4`;
 a missing file produces a typed error, not a crash.
 
 ### T4 — Disk guard
@@ -1175,10 +1175,10 @@ curl -s localhost:7788/api/health
 curl -s "localhost:7788/api/fs?path=/mnt/c/Users" | head -c 400
 curl -s -X POST localhost:7788/api/fs/resolve \
   -H 'content-type: application/json' \
-  -d '{"path":"C:\\Users\\mirfa\\Videos"}'
-curl -s "localhost:7788/api/probe?path=$PWD/medias/ai_module_clarity.mp4"
+  -d '{"path":"C:\\Users\\you\\Videos"}'
+curl -s "localhost:7788/api/probe?path=$PWD/medias/team-sync.mp4"
 curl -s -X POST localhost:7788/api/prompt -H 'content-type: application/json' \
-  -d '{"context":"Sprint review","attendees":["Irfan"],"terms":["Sybil"]}'
+  -d '{"context":"Sprint review","attendees":["Alice"],"terms":["Atlas"]}'
 curl -s localhost:7788/api/doctor
 curl -s localhost:7788/api/disk
 ```
@@ -1224,6 +1224,6 @@ curl -s localhost:7788/api/disk
 | ffmpeg or Whisper fails with an opaque I/O error on a `/mnt` output path | stem contains NTFS-illegal characters | `sanitizeForWindows()`, section 5.8 |
 | `C:\\Users\\...` passed to ffmpeg verbatim | missing conversion | `toWslPath()`, section 5.8 |
 | Source file missing or altered after a run | code touched `/mnt/c` | forbidden; see rule 5 in section 0.1 and section 5.2 |
-| C: free space does not grow after deleting WSL files | vhdx does not auto-shrink | surface the hint: `wsl --shutdown` then `wsl --manage Ubuntu22 --set-sparse true` |
+| C: free space does not grow after deleting WSL files | vhdx does not auto-shrink | surface the hint: `wsl --shutdown` then `wsl --manage Ubuntu --set-sparse true` |
 | Two jobs OOM the GPU | parallel transcription | queue depth 1, section 6.5 |
 | Browser cannot reach the server | bound to a non-loopback address, or wrong port | bind `127.0.0.1`, port 7788 |

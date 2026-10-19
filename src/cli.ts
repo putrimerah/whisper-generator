@@ -55,8 +55,8 @@ Options:
   -h, --help             This text
 
 Examples:
-  wg run "C:/recordings/standup.mp4" --attendees "Irfan,Aisyah" --context "Weekly sprint review"
-  wg script ./meeting.mkv --attendees "Irfan,Lee" | clip.exe
+  wg run "C:/recordings/standup.mp4" --attendees "Alice,Bob" --context "Weekly sprint review"
+  wg script ./meeting.mkv --attendees "Alice,Bob" | clip.exe
 `;
 
 const OPTIONS = {
@@ -182,12 +182,19 @@ async function main(argv: string[]): Promise<number> {
       process.stdout.write(`output root: ${config.outputRoot}\n`);
       if (envFile) process.stdout.write(`env file:    ${envFile}\n`);
       if (flags.open === true) {
-        // Browser lives on Windows; WSL2 forwards loopback automatically.
-        const child = spawn(
-          "powershell.exe",
-          ["-NoProfile", "-Command", "Start-Process", server.url],
-          { detached: true, stdio: "ignore" },
-        );
+        // Under WSL the browser lives on Windows and loopback is forwarded;
+        // elsewhere use the platform opener.
+        const host = detectHost();
+        const [bin, args] =
+          host === "wsl"
+            ? ["powershell.exe", ["-NoProfile", "-Command", "Start-Process", server.url]]
+            : host === "macos"
+              ? ["open", [server.url]]
+              : ["xdg-open", [server.url]];
+        const child = spawn(bin as string, args as string[], {
+          detached: true,
+          stdio: "ignore",
+        });
         child.on("error", () => process.stderr.write(`could not open a browser; visit ${server.url}\n`));
         child.unref();
       }
