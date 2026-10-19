@@ -103,7 +103,8 @@ These values were measured on the target machine. Do not assume different ones.
 | faster-whisper | 1.2.1 |
 | ctranslate2 | 4.8.3, CUDA device count 1 |
 | CUDA libs | `nvidia-cublas-cu12` 12.9.2.10, `nvidia-cudnn-cu12` 9.27.0.42, inside the venv |
-| Model in use | `large-v3` at `int8_float16` (~3.5 GB VRAM, fits the 6 GB GPU) |
+| Model in use | `large-v3` at `int8_float16` (~3.5 GB VRAM, fits the 6 GB GPU). The user chose quality over speed; do not change this default to a smaller model |
+| Default outputRoot | `<windows user>/Documents/transcripts`, discovered at runtime |
 | Model cache | `~/.cache/huggingface`, ~3.1 GB |
 | Windows user | `mirfa`; home is `/mnt/c/Users/mirfa` from WSL |
 | Measured speed | 60 s of audio → 26 s wall clock (~2.3× realtime) including model load |
@@ -371,7 +372,8 @@ Notes:
     audio.16k.wav         extracted audio
   jobs.json               persisted job queue, section 7.4
 
-<outputRoot>/<stem>/      results, outputRoot defaults to ./out
+<outputRoot>/<stem>/      results; outputRoot defaults to the Windows
+                          Documents folder, see section 5.8
   <stem>.srt .vtt .txt .tsv .json
   <stem>.16k.wav          only when keepAudio is true
   meeting.json
@@ -397,6 +399,13 @@ accepted and normalised:
 | `/mnt/c/Users/mirfa/Documents/transcripts` | unchanged |
 | `/home/irfan/transcripts` | unchanged |
 | `./out` | resolved against the working directory |
+
+**Default.** `defaultOutputRoot()` in `src/config.ts` returns
+`<windows user home>/Documents/transcripts`, discovered at runtime through
+`windowsUserHome()` in `src/platform.ts`. It scans `/mnt/c/Users`, skips
+`Public`, `Default`, `All Users` and friends, and requires the candidate to
+contain `Documents` or `Videos`. It falls back to `./out` when no Windows
+profile is reachable. **Never hardcode a username anywhere.**
 
 Use `toWslPath()` from `src/platform.ts`. It is idempotent, so applying it to
 an already-POSIX path is safe. Never hand a raw `C:\...` string to ffmpeg or
@@ -643,7 +652,7 @@ Rules:
     { "label": "Downloads", "path": "/mnt/c/Users/mirfa/Downloads" },
     { "label": "Desktop",   "path": "/mnt/c/Users/mirfa/Desktop" },
     { "label": "WSL home",  "path": "/home/irfan" },
-    { "label": "Output",    "path": "/home/irfan/works/whisper-generator/out" }
+    { "label": "Transcripts", "path": "/mnt/c/Users/mirfa/Documents/transcripts" }
   ]
 }
 ```
@@ -707,7 +716,7 @@ Request (all fields required unless marked optional):
 ```json
 {
   "input": "/mnt/c/Users/mirfa/Videos/standup.mp4",
-  "outDir": "/home/irfan/works/whisper-generator/out/standup",
+  "outDir": "/mnt/c/Users/mirfa/Documents/transcripts/standup",
   "attendees": ["Irfan", "Aisyah"],
   "terms": ["Kafka", "Sybil"],
   "context": "Weekly sprint review",

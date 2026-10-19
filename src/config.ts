@@ -1,7 +1,18 @@
 import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { windowsUserHome } from "./platform.ts";
 import type { Config } from "./types.ts";
+
+/**
+ * Transcripts default to the Windows Documents folder so Explorer, search and
+ * OneDrive can see them without any configuration. Falls back to ./out when
+ * no Windows profile is reachable (plain Linux, or /mnt/c not mounted).
+ */
+export function defaultOutputRoot(): string {
+  const home = windowsUserHome();
+  return home ? join(home, "Documents", "transcripts") : "./out";
+}
 
 /** Whisper installed by scripts/install-wsl.sh, outside any project directory. */
 export const VENV_WHISPER = join(homedir(), ".wg", "venv", "bin", "whisper-ctranslate2");
@@ -15,7 +26,7 @@ export const DEFAULT_CONFIG: Config = {
   device: "auto",
   computeType: "int8_float16",
   outputFormats: ["srt", "vtt", "txt", "json"],
-  outputRoot: "./out",
+  outputRoot: defaultOutputRoot(),
   // Prefer the managed venv; fall back to PATH for Windows-native installs.
   whisperPath: existsSync(VENV_WHISPER) ? VENV_WHISPER : "whisper",
   ffmpegPath: "ffmpeg",

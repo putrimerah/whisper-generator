@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildPrompt, estimateTokens, PROMPT_TOKEN_BUDGET } from "./prompt.ts";
 import { quotePowerShell, quotePosix, renderCommand } from "./shell.ts";
-import { isOnWindowsMount, sanitizeForWindows, toWslPath } from "./platform.ts";
+import { isOnWindowsMount, pickWindowsUser, sanitizeForWindows, toWslPath } from "./platform.ts";
 import type { ExecutionPlan } from "./types.ts";
 
 test("prompt keeps participants and glossary last", () => {
@@ -69,4 +69,11 @@ test("stems are sanitised for NTFS targets", () => {
   assert.equal(sanitizeForWindows("trailing dots..."), "trailing dots");
   assert.equal(sanitizeForWindows("CON"), "CON_");
   assert.equal(sanitizeForWindows("normal-name"), "normal-name");
+});
+
+test("windows user discovery skips system profiles", () => {
+  const entries = ["Public", "Default", "All Users", "desktop.ini", "mirfa"];
+  const picked = pickWindowsUser(entries, (n) => n === "mirfa");
+  assert.equal(picked, "mirfa");
+  assert.equal(pickWindowsUser(["Public", "Default"], () => true), null);
 });

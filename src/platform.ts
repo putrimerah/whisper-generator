@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import type { Engine, ExecutionPlan, Host } from "./types.ts";
 
 let cachedHost: Host | undefined;
@@ -46,6 +46,49 @@ export function toEnginePath(p: string, plan: ExecutionPlan): string {
     const distro = process.env.WSL_DISTRO_NAME ?? "Ubuntu";
     return `\\\\wsl$\\${distro}${abs.replace(/\//g, "\\")}`;
   }
+}
+
+/** Directories under C:\Users that are never a real person. */
+const NON_USER_DIRS = new Set([
+  "public",
+  "default",
+  "default user",
+  "all users",
+  "defaultaccount",
+  "wdagutilityaccount",
+  "desktop.ini",
+]);
+
+/**
+ * Pick the real Windows user from the entries of C:\Users.
+ * Pure, so it can be tested without a Windows mount. `hasProfileDirs` reports
+ * whether a candidate contains the folders a genuine profile always has.
+ */
+export function pickWindowsUser(
+  entries: string[],
+  hasProfileDirs: (name: string) => boolean,
+): string | null {
+  const candidates = entries
+    .filter((name) => !NON_USER_DIRS.has(name.toLowerCase()))
+    .filter((name) => !name.startsWith("."))
+    .filter(hasProfileDirs);
+  return candidates[0] ?? null;
+}
+
+/** Absolute WSL path of the Windows user profile, or null when unavailable. */
+export function windowsUserHome(): string | null {
+  const root = "/mnt/c/Users";
+  if (!existsSync(root)) return null;
+  let entries: string[];
+  try {
+    entries = readdirSync(root);
+  } catch {
+    return null;
+  }
+  const user = pickWindowsUser(entries, (name) =>
+    existsSync(join(root, name, "Documents")) || existsSync(join(root, name, "Videos")),
+  );
+  return user ? join(root, user) : null;
 }
 
 /** True when the path lives on a mounted Windows drive (NTFS via drvfs). */

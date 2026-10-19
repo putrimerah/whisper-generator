@@ -41,13 +41,19 @@ whole script on the Windows clipboard.
 
 `wg.config.json` in the project directory, or `~/.wg/wg.config.json`. Flags win over config.
 
+`outputRoot` accepts Windows paths (`C:\Users\you\Documents\transcripts`),
+`/mnt/c/...` paths, or plain WSL paths; all are normalised. It defaults to the
+Windows `Documents\transcripts` folder, discovered at runtime, so transcripts
+land where Explorer can see them. Filenames are sanitised for NTFS when the
+target is on a Windows drive.
+
 ```json
 {
   "engine": "auto",
   "model": "large-v3",
   "language": "en",
   "device": "auto",
-  "outputRoot": "D:/transcripts",
+  "outputRoot": "C:\\Users\\you\\Documents\\transcripts",
   "outputFormats": ["srt", "vtt", "txt", "json"],
   "extractAudio": false,
   "attendees": ["Irfan"],
