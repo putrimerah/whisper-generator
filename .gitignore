@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.log
+.wg/
+out/
+wg.config.json
+
+# Meeting recordings and transcripts: large, private, never committed
+medias/
+out/
+*.mp4
+*.mkv
+*.wav
+
+# Stray nested clone, not part of this project
+whisper-generator/

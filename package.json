@@ -1,0 +1,26 @@
+{
+  "name": "whisper-generator",
+  "version": "0.1.0",
+  "description": "Meeting transcription pipeline: extract audio, build a budgeted Whisper prompt, run transcription.",
+  "type": "module",
+  "bin": {
+    "wg": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --experimental-strip-types src/cli.ts",
+    "test": "node --experimental-strip-types --test src/**/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}
