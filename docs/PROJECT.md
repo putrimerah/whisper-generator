@@ -253,6 +253,27 @@ wg doctor            # ffmpeg, whisper, CUDA libs, ctranslate2, VRAM vs model
 bash scripts/install-wsl.sh   # user-level install, no sudo
 ```
 
+## 12a. Dependencies and advisories
+
+The server has **zero runtime dependencies**; `node:` built-ins cover
+everything. That is deliberate and is why no advisory can reach production
+code. The web client has 12 direct dependencies and ~192 including
+transitive.
+
+Open advisories, all **dev-only**, all in Tailwind 3's build chain
+(`braces` → `micromatch` → `chokidar` → `tailwindcss`, plus
+`postcss-selector-parser`): denial-of-service bugs in tooling that runs at
+build time, on our own source, on the developer's machine. Not reachable by
+any user of the app.
+
+They cannot be fixed without `npm audit fix --force`, which upgrades Tailwind
+to v4 and rewrites the config. The cost outweighs the risk, so they stay.
+Dependabot will propose the upgrade on its own schedule, and CI will say
+whether it breaks.
+
+Dependabot is configured in `.github/dependabot.yml`: monthly, grouped into
+few PRs, covering the server, the web client and the CI actions.
+
 ## 13. Still open
 
 - Voice enrollment so speaker labels resolve to names automatically.

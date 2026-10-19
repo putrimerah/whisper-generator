@@ -1,0 +1,43 @@
+# Dependabot keeps dependencies patched by opening pull requests.
+#
+# Tuned for a solo project: monthly rather than weekly, and grouped so one PR
+# covers many packages instead of ten PRs covering one each. Security fixes
+# ignore this schedule and arrive as soon as they exist.
+version: 2
+updates:
+  # The server has no runtime dependencies; this covers TypeScript and @types.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      server-dev:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # The web client: React, Vite, Tailwind and their build chain.
+  - package-ecosystem: npm
+    directory: "/web"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      web-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      web-major:
+        patterns: ["*"]
+        update-types: ["major"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Keep the CI actions themselves current.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(ci)"

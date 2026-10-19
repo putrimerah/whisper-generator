@@ -67,6 +67,17 @@ real bug.
 9. **Never commit a real username, path, token, recording or transcript.**
    `make privacy` enforces this.
 
+## Hooks
+
+`make install` installs a pre-push guard that blocks anything looking like a
+token, plus media, transcripts and personal paths. Install it alone with:
+
+```bash
+make hooks
+```
+
+Bypass once with `git push --no-verify`, if you are sure.
+
 ## Tests
 
 `node:test`, no test runner dependency.

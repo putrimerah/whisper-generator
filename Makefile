@@ -25,7 +25,7 @@ BOLD := \033[1m
 DIM := \033[2m
 OFF := \033[0m
 
-.PHONY: run start dev stop build test check doctor setup install link clean reset update help transcribe env privacy
+.PHONY: run start dev stop build test check doctor setup install link clean reset update help transcribe env privacy hooks
 
 env: .env ## Create .env from .env.example if missing
 
@@ -86,6 +86,10 @@ check: node_modules privacy ## Typecheck, test, build, privacy scan — run befo
 	@npm run typecheck && npm test && $(MAKE) --no-print-directory build
 	@echo -e "$(GREEN)all checks passed$(OFF)"
 
+hooks: ## Install the pre-push guard against leaking secrets or personal paths
+	@git config core.hooksPath scripts/hooks
+	@echo -e "$(GREEN)pre-push guard installed$(OFF) (bypass once with git push --no-verify)"
+
 privacy: ## Scan tracked files for this machine's usernames, tokens and media
 	@fail=0 ; \
 	 user=$$(id -un) ; \
@@ -110,7 +114,7 @@ doctor: dist/cli.js ## Check ffmpeg, Whisper, CUDA libraries, VRAM vs model
 
 setup: install ## Alias for `make install`
 
-install: node_modules web/node_modules $(WHISPER) ## Install everything, including Whisper and ffmpeg
+install: node_modules web/node_modules $(WHISPER) hooks ## Install everything, including Whisper and ffmpeg
 	@$(MAKE) --no-print-directory build
 	@$(MAKE) --no-print-directory doctor
 

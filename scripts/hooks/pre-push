@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Local push protection. Installed by `make hooks`.
+#
+# GitHub's push protection catches secrets server-side; this catches them
+# before they ever leave the machine, together with personal paths and media
+# that GitHub would happily accept.
+set -uo pipefail
+
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+fail=0
+red() { printf '\033[31m%s\033[0m\n' "$*"; }
+
+# 1. Tokens, in tracked files and in the commits about to be pushed.
+PATTERNS='hf_[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+if git grep -nIE "$PATTERNS" -- . 2>/dev/null | grep -vE 'your_token|x{8}|PATTERNS=' | grep -q .; then
+  red "push blocked: something shaped like a secret is committed"
+  git grep -nIE "$PATTERNS" -- . 2>/dev/null | grep -vE 'your_token|x{8}|PATTERNS=' | head -5
+  fail=1
+fi
+
+# 2. Recordings, transcripts and the env file.
+if git ls-files | grep -qiE '\.(mp4|mkv|mov|wav|mp3|m4a|srt|vtt)$|^medias/|^\.env$'; then
+  red "push blocked: media, transcripts or .env are tracked"
+  git ls-files | grep -iE '\.(mp4|mkv|mov|wav|mp3|m4a|srt|vtt)$|^medias/|^\.env$' | head -5
+  fail=1
+fi
+
+# 3. This machine's usernames, which would identify the author's filesystem.
+user=$(id -un 2>/dev/null)
+win=$(ls /mnt/c/Users 2>/dev/null | grep -viE '^(public|default|default user|all users|defaultaccount|wdagutilityaccount|desktop.ini)$' | head -1)
+for term in "$user" "$win"; do
+  [ -n "$term" ] || continue
+  if git grep -niI -- "$term" -- . >/dev/null 2>&1; then
+    red "push blocked: tracked files mention '$term'"
+    git grep -niI -- "$term" -- . | head -3
+    fail=1
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  echo
+  echo "Fix the above, or bypass once with: git push --no-verify"
+  exit 1
+fi
+exit 0
