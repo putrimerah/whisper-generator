@@ -10,6 +10,8 @@ import { estimateNeeded, formatBytes, SAFETY_MARGIN_BYTES } from "./disk.ts";
 import { cleanupWorkspace, wavPathFor } from "./workspace.ts";
 import { parseSrt, srtTimeToSeconds } from "./routes/meetings.ts";
 import { Router } from "./router.ts";
+import { buildAiMarkdown, groupSegments, estimateTokens as estimateAiTokens } from "./aiExport.ts";
+import { createZip, crc32 } from "./zip.ts";
 import type { Job } from "./jobTypes.ts";
 import type { RunOptions } from "../types.ts";
 
@@ -186,4 +188,48 @@ test("router matches params and rejects mismatches", () => {
   assert.deepEqual(router.match("GET", "/api/jobs/abc")?.params, { id: "abc" });
   assert.equal(router.match("POST", "/api/jobs/abc"), null);
   assert.equal(router.match("GET", "/api/jobs"), null);
+});
+
+test("ai export merges segments into timestamped paragraphs", () => {
+  const segments = [
+    { id: 0, start: 0, end: 3, text: "Hello there", speaker: null },
+    { id: 1, start: 3, end: 6, text: "second part", speaker: null },
+    { id: 2, start: 90, end: 95, text: "much later", speaker: null },
+  ];
+  const md = buildAiMarkdown("standup", null, segments);
+  assert.match(md, /# Meeting: standup/);
+  // Two segments inside the same minute merge; the later one starts a new one.
+  assert.match(md, /\[00:00\] Hello there second part/);
+  assert.match(md, /\[01:30\] much later/);
+});
+
+test("ai export breaks paragraphs on speaker change", () => {
+  const segments = [
+    { id: 0, start: 0, end: 2, text: "Hi", speaker: "Irfan" },
+    { id: 1, start: 2, end: 4, text: "Hello", speaker: "Aisyah" },
+  ];
+  const paragraphs = groupSegments(segments, 60);
+  assert.equal(paragraphs.length, 2);
+  assert.equal(paragraphs[1]?.speaker, "Aisyah");
+});
+
+test("ai export is cheaper than srt and far cheaper than json", () => {
+  const segments = Array.from({ length: 60 }, (_, i) => ({
+    id: i, start: i * 5, end: i * 5 + 5, text: "some spoken words here", speaker: null,
+  }));
+  const md = buildAiMarkdown("m", null, segments, { includeHeader: false });
+  // One stamp per minute instead of one index + range per segment.
+  assert.ok(estimateAiTokens(md) < estimateAiTokens(segments.map((s, i) =>
+    `${i + 1}\n00:00:0${s.start} --> 00:00:0${s.end}\n${s.text}\n`).join("\n")));
+});
+
+test("zip has a valid signature and holds every entry", () => {
+  const zip = createZip([
+    { name: "a/one.txt", data: Buffer.from("hello") },
+    { name: "a/two.md", data: Buffer.from("# title") },
+  ]);
+  assert.equal(zip.readUInt32LE(0), 0x04034b50);
+  assert.equal(zip.readUInt16LE(zip.length - 14), 2); // entry count
+  assert.ok(zip.includes(Buffer.from("a/one.txt")));
+  assert.equal(crc32(Buffer.from("hello")), 0x3610a686);
 });

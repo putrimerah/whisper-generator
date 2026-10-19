@@ -8,6 +8,34 @@ import { Button, Card, ErrorText, Field, inputClass } from "../components/Ui.tsx
 
 const MODELS = ["tiny", "base", "small", "medium", "large-v3", "turbo"];
 const COMPUTE = ["int8_float16", "int8", "float16", "float32", "auto"];
+
+/**
+ * Quality presets instead of a raw quantization dropdown. "Best" fits
+ * large-v3 into 6 GB of VRAM while leaving room for the display.
+ */
+const PRESETS = [
+  {
+    id: "best",
+    label: "Best",
+    hint: "large-v3, highest accuracy, handles Malay mixed with English. ~2.3x realtime.",
+    model: "large-v3",
+    computeType: "int8_float16",
+  },
+  {
+    id: "faster",
+    label: "Faster",
+    hint: "medium model, roughly 3x quicker, weaker on Malay and names.",
+    model: "medium",
+    computeType: "int8",
+  },
+  {
+    id: "compatibility",
+    label: "Maximum compatibility",
+    hint: "small model, lowest memory. Use only if the GPU runs out of memory.",
+    model: "small",
+    computeType: "int8",
+  },
+] as const;
 const LANGUAGES = [
   { value: "en", label: "English (forced)" },
   { value: "ms", label: "Malay (forced)" },
@@ -24,6 +52,8 @@ export default function NewRun() {
   const [attendees, setAttendees] = useState<string[]>([]);
   const [terms, setTerms] = useState<string[]>([]);
   const [context, setContext] = useState("");
+  const [preset, setPreset] = useState<string>("best");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [model, setModel] = useState("large-v3");
   const [language, setLanguage] = useState("en");
   const [computeType, setComputeType] = useState("int8_float16");
@@ -34,6 +64,14 @@ export default function NewRun() {
   const [outDir, setOutDir] = useState("");
   const [showOutPicker, setShowOutPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const applyPreset = (id: string) => {
+    setPreset(id);
+    const found = PRESETS.find((p) => p.id === id);
+    if (!found) return;
+    setModel(found.model);
+    setComputeType(found.computeType);
+  };
 
   useEffect(() => {
     if (!config) return;
@@ -173,10 +211,11 @@ export default function NewRun() {
             never moved, changed, or deleted.
           </p>
 
-          <div className="grid grid-cols-3 gap-4">
-            <Field label="Model">
-              <select className={inputClass} value={model} onChange={(e) => setModel(e.target.value)}>
-                {MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Quality">
+              <select className={inputClass} value={preset} onChange={(e) => applyPreset(e.target.value)}>
+                {PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                <option value="custom">Custom (set in Advanced)</option>
               </select>
             </Field>
             <Field label="Language">
@@ -184,12 +223,11 @@ export default function NewRun() {
                 {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
               </select>
             </Field>
-            <Field label="Compute type">
-              <select className={inputClass} value={computeType} onChange={(e) => setComputeType(e.target.value)}>
-                {COMPUTE.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </Field>
           </div>
+          <p className="text-xs text-slate-400">
+            {PRESETS.find((p) => p.id === preset)?.hint ??
+              `Custom: ${model} at ${computeType}.`}
+          </p>
 
           <div className="flex gap-6 text-sm">
             <label className="flex items-center gap-2">
@@ -257,6 +295,42 @@ export default function NewRun() {
               }}
             />
           )}
+
+          <div className="rounded-lg border border-slate-800">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between px-4 py-2 text-sm text-slate-300"
+              onClick={() => setShowAdvanced((v) => !v)}
+            >
+              <span>Advanced</span>
+              <span className="text-xs text-slate-500">{showAdvanced ? "hide" : "show"}</span>
+            </button>
+            {showAdvanced && (
+              <div className="grid grid-cols-2 gap-4 border-t border-slate-800 p-4">
+                <Field label="Model">
+                  <select
+                    className={inputClass}
+                    value={model}
+                    onChange={(e) => { setModel(e.target.value); setPreset("custom"); }}
+                  >
+                    {MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </Field>
+                <Field
+                  label="Compute type"
+                  hint="Number precision. int8_float16 fits large-v3 in 6 GB of VRAM; float16 is marginally more accurate but risks running out of memory."
+                >
+                  <select
+                    className={inputClass}
+                    value={computeType}
+                    onChange={(e) => { setComputeType(e.target.value); setPreset("custom"); }}
+                  >
+                    {COMPUTE.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </Field>
+              </div>
+            )}
+          </div>
 
           <ErrorText>{error}</ErrorText>
           <Button disabled={!input || create.isPending} onClick={() => create.mutate()}>

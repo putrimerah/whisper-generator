@@ -21,7 +21,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<{ ok: boolean }>("/api/health"),
 
-  favorites: () => request<{ favorites: Favorite[] }>("/api/fs/favorites"),
+  favorites: () =>
+    request<{ favorites: Favorite[]; defaultPath: string | null }>("/api/fs/favorites"),
   listDir: (path: string, dirsOnly = false) =>
     request<DirListing>(`/api/fs?path=${encodeURIComponent(path)}&dirsOnly=${dirsOnly}`),
   resolvePath: (path: string) =>
@@ -60,8 +61,16 @@ export const api = {
       `/api/meetings/${encodeURIComponent(dir)}/speakers`,
       { method: "PUT", body: JSON.stringify({ speakers }) },
     ),
-  markdown: (dir: string) =>
-    request<{ markdown: string }>(`/api/meetings/${encodeURIComponent(dir)}/markdown`),
+  aiExport: (dir: string) =>
+    request<{ markdown: string; tokens: number; segments: number }>(
+      `/api/meetings/${encodeURIComponent(dir)}/ai`,
+    ),
+  aiExportMany: (dirs: string[]) =>
+    request<{ markdown: string; tokens: number; meetings: number }>("/api/export/ai", {
+      method: "POST",
+      body: JSON.stringify({ dirs }),
+    }),
+  zipUrl: (dir: string) => `/api/meetings/${encodeURIComponent(dir)}/zip`,
   search: (q: string) => request<{ results: SearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}`),
 
   mediaUrl: (path: string) => `/api/media?path=${encodeURIComponent(path)}`,

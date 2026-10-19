@@ -1,5 +1,7 @@
 # whisper-generator (`wg`)
 
+> Working on this repo with an AI agent? Start at [docs/PROJECT.md](docs/PROJECT.md).
+
 Turns the 8-step copy-paste ritual into one command:
 
 ```bash
@@ -83,6 +85,21 @@ dropped silently. The builder orders sections lead → context → participants 
 glossary and trims from the front, so names and jargon always survive. Over
 budget, you get a warning naming what was dropped.
 
+## Feeding transcripts to a chatbot
+
+Use **Copy for AI**, not the raw files. Measured on the same clip:
+
+| File | Relative tokens | Keeps timing |
+|---|---|---|
+| `.txt` | 1.0x | no |
+| `.srt` | 1.4x | yes, wasteful |
+| `.json` | 7.4x | yes, very wasteful |
+| **AI `.md`** | **~1.1x** | **yes** |
+
+The AI export puts attendees, context and glossary in a header, merges
+Whisper's mid-sentence line breaks into paragraphs, and stamps one time per
+paragraph. A one-hour meeting costs roughly 9k tokens instead of 67k as JSON.
+
 ## Model and language notes
 
 - Use multilingual models (`medium`, `large-v3`), not `.en` variants, when
@@ -127,6 +144,10 @@ wg ui --open            # http://localhost:7788, opens in the Windows browser
   in-transcript search, Markdown export.
 - **Glossary loop** — select a misheard word in the transcript and add it to
   `terms`; every later run spells it correctly.
+- **AI export** — “Copy for AI” gives a chatbot-ready Markdown transcript with
+  a header and minute-stamped paragraphs, plus a token estimate. Select several
+  meetings in the Library to export them as one prompt. “Download all (.zip)”
+  bundles every format.
 - **Search** — full-text across all transcripts.
 - **Speakers** — with a HuggingFace token, diarization labels speakers; map
   `SPEAKER_00` to a real name once and it is stored in `meeting.json`.

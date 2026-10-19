@@ -1,7 +1,13 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
-import { isOnWindowsMount, pickWindowsUser, sanitizeForWindows, toWslPath } from "../platform.ts";
+import {
+  isOnWindowsMount,
+  pickWindowsUser,
+  sanitizeForWindows,
+  toWslPath,
+  windowsSpecialFolder,
+} from "../platform.ts";
 import { forbiddenPath, notFound } from "./errors.ts";
 
 export const VIDEO_EXTENSIONS = new Set([
@@ -115,6 +121,14 @@ export interface Favorite {
   path: string;
 }
 
+/** Where the browser opens before the user has picked anything. */
+export function defaultBrowsePath(): string | null {
+  const winHome = windowsUserDir();
+  if (!winHome) return null;
+  const videos = join(winHome, "Videos");
+  return existsSync(videos) ? videos : winHome;
+}
+
 /** Windows profile discovered at runtime; never hardcode a username. */
 export function windowsUserDir(): string | null {
   const root = "/mnt/c/Users";
@@ -133,11 +147,13 @@ export function favorites(outputRoot: string): Favorite[] {
   const list: Favorite[] = [];
   const winHome = windowsUserDir();
   if (winHome) {
+    // Videos first: screen recorders write there and it is not redirected.
+    // Documents and Desktop follow the OneDrive redirect when present.
     list.push(
       { label: "Videos", path: join(winHome, "Videos") },
       { label: "Downloads", path: join(winHome, "Downloads") },
-      { label: "Desktop", path: join(winHome, "Desktop") },
-      { label: "Documents", path: join(winHome, "Documents") },
+      { label: "Documents", path: windowsSpecialFolder(winHome, "Documents") },
+      { label: "Desktop", path: windowsSpecialFolder(winHome, "Desktop") },
     );
   }
   list.push({ label: "WSL home", path: homedir() });

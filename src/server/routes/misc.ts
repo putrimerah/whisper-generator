@@ -7,7 +7,7 @@ import { toWslPath } from "../../platform.ts";
 import type { Config, ExecutionPlan } from "../../types.ts";
 import { diskReport } from "../disk.ts";
 import { badRequest } from "../errors.ts";
-import { favorites, listDirectory, resolveUserPath } from "../fsService.ts";
+import { defaultBrowsePath, favorites, listDirectory, resolveUserPath } from "../fsService.ts";
 import { probeMedia } from "../probe.ts";
 import { assertNoUnknownKeys, type Ctx, type Router } from "../router.ts";
 
@@ -24,7 +24,9 @@ export function registerMiscRoutes(router: Router, state: AppState): void {
     const path = ctx.url.searchParams.get("path") ?? "";
     const dirsOnly = ctx.url.searchParams.get("dirsOnly") === "true";
     const showHidden = ctx.url.searchParams.get("showHidden") === "true";
-    if (path === "") return { favorites: favorites(state.config.outputRoot) };
+    if (path === "") {
+      return { favorites: favorites(state.config.outputRoot), defaultPath: defaultBrowsePath() };
+    }
     return listDirectory(path, {
       dirsOnly,
       showHidden,
@@ -32,7 +34,10 @@ export function registerMiscRoutes(router: Router, state: AppState): void {
     });
   });
 
-  router.get("/api/fs/favorites", () => ({ favorites: favorites(state.config.outputRoot) }));
+  router.get("/api/fs/favorites", () => ({
+    favorites: favorites(state.config.outputRoot),
+    defaultPath: defaultBrowsePath(),
+  }));
 
   router.post("/api/fs/resolve", (ctx: Ctx) => {
     const body = (ctx.body ?? {}) as Record<string, unknown>;

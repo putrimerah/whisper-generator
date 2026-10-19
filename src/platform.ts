@@ -75,6 +75,20 @@ export function pickWindowsUser(
   return candidates[0] ?? null;
 }
 
+/**
+ * Windows redirects Documents and Desktop into OneDrive when it is set up, so
+ * `<profile>/Documents` becomes a near-empty stub. Prefer the redirected
+ * folder when it exists, fall back to the profile folder when it does not.
+ */
+export function windowsSpecialFolder(
+  profile: string,
+  folder: "Documents" | "Desktop" | "Pictures",
+): string {
+  const oneDrive = join(profile, "OneDrive", folder);
+  if (existsSync(oneDrive)) return oneDrive;
+  return join(profile, folder);
+}
+
 /** Absolute WSL path of the Windows user profile, or null when unavailable. */
 export function windowsUserHome(): string | null {
   const root = "/mnt/c/Users";

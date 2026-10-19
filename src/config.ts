@@ -1,17 +1,17 @@
 import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { windowsUserHome } from "./platform.ts";
+import { windowsSpecialFolder, windowsUserHome } from "./platform.ts";
 import type { Config } from "./types.ts";
 
 /**
- * Transcripts default to the Windows Documents folder so Explorer, search and
- * OneDrive can see them without any configuration. Falls back to ./out when
- * no Windows profile is reachable (plain Linux, or /mnt/c not mounted).
+ * Transcripts default to the Documents folder, which on this machine is
+ * redirected into OneDrive, so every transcript is backed up and reachable
+ * from other devices. Falls back to ./out without a Windows profile.
  */
 export function defaultOutputRoot(): string {
   const home = windowsUserHome();
-  return home ? join(home, "Documents", "transcripts") : "./out";
+  return home ? join(windowsSpecialFolder(home, "Documents"), "transcripts") : "./out";
 }
 
 /** Whisper installed by scripts/install-wsl.sh, outside any project directory. */

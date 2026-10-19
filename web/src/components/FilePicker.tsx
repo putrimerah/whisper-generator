@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, formatBytes } from "../api/client.ts";
 import { Button, ErrorText, inputClass } from "./Ui.tsx";
@@ -17,11 +17,22 @@ export default function FilePicker({
   dirsOnly?: boolean;
 }) {
   const [tab, setTab] = useState<"browse" | "paste">("browse");
-  const [cwd, setCwd] = useState<string | null>(null);
+  const storageKey = dirsOnly ? "wg.lastOutDir" : "wg.lastDir";
+  const [cwd, setCwd] = useState<string | null>(() => localStorage.getItem(storageKey));
   const [draft, setDraft] = useState("");
   const [pasteError, setPasteError] = useState<string | null>(null);
 
   const favorites = useQuery({ queryKey: ["favorites"], queryFn: api.favorites });
+
+  // Open where the user left off; first run falls back to the recordings
+  // folder reported by the server.
+  useEffect(() => {
+    if (cwd === null && favorites.data?.defaultPath) setCwd(favorites.data.defaultPath);
+  }, [cwd, favorites.data]);
+
+  useEffect(() => {
+    if (cwd) localStorage.setItem(storageKey, cwd);
+  }, [cwd, storageKey]);
   const listing = useQuery({
     queryKey: ["fs", cwd, dirsOnly],
     queryFn: () => api.listDir(cwd as string, dirsOnly),

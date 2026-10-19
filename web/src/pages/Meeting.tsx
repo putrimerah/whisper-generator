@@ -56,13 +56,23 @@ export default function Meeting() {
     void navigator.clipboard.writeText(text);
   };
 
-  const exportMarkdown = async () => {
-    const { markdown } = await api.markdown(dir);
-    const blob = new Blob([markdown], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
+  // Chatbot-ready export: header + minute-stamped paragraphs. Cheaper than
+  // srt, and unlike txt it keeps timing so the bot can cite a moment.
+  const [aiInfo, setAiInfo] = useState<{ tokens: number } | null>(null);
+
+  const copyForAi = async () => {
+    const { markdown, tokens } = await api.aiExport(dir);
+    await navigator.clipboard.writeText(markdown);
+    setAiInfo({ tokens });
+  };
+
+  const downloadAi = async () => {
+    const { markdown, tokens } = await api.aiExport(dir);
+    setAiInfo({ tokens });
+    const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${dir}.md`;
+    a.download = `${dir}.ai.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -70,9 +80,16 @@ export default function Meeting() {
   return (
     <div className="space-y-4">
       <Card title={dir} actions={
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={copyAll}>Copy transcript</Button>
-          <Button variant="ghost" onClick={() => void exportMarkdown()}>Export Markdown</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => void copyForAi()}>Copy for AI</Button>
+          <Button variant="ghost" onClick={() => void downloadAi()}>Download .md</Button>
+          <a
+            href={api.zipUrl(dir)}
+            className="rounded-lg border border-slate-700 px-3.5 py-2 text-sm hover:bg-slate-800"
+          >
+            Download all (.zip)
+          </a>
+          <Button variant="ghost" onClick={copyAll}>Copy plain text</Button>
         </div>
       }>
         {record && (
@@ -84,6 +101,12 @@ export default function Meeting() {
           </dl>
         )}
         {record?.context && <p className="mt-3 text-sm text-slate-300">{record.context}</p>}
+        {aiInfo && (
+          <p className="mt-3 text-xs text-emerald-300">
+            AI export ready: ~{aiInfo.tokens.toLocaleString()} tokens. Paste it into your chatbot
+            and ask for a summary, decisions, or action items.
+          </p>
+        )}
         <div className="mt-3 flex flex-wrap gap-2">
           {meeting.data?.outputs.map((name) => (
             <a

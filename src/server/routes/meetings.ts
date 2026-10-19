@@ -5,7 +5,9 @@ import { MEETING_FILENAME } from "../../meeting.ts";
 import type { MeetingRecord } from "../../types.ts";
 import { badRequest, notFound } from "../errors.ts";
 import { assertAllowed } from "../fsService.ts";
-import { assertNoUnknownKeys, sendJson, type Ctx, type Router } from "../router.ts";
+import { buildAiMarkdown, buildCombinedMarkdown, estimateTokens } from "../aiExport.ts";
+import { createZip } from "../zip.ts";
+import { assertNoUnknownKeys, type Ctx, type Router } from "../router.ts";
 import type { AppState } from "./misc.ts";
 
 export interface Segment {
@@ -274,30 +276,65 @@ export function registerMeetingRoutes(router: Router, state: AppState): void {
     return undefined;
   });
 
-  /** P4: export a meeting as Markdown for Notion/Obsidian. */
-  router.get("/api/meetings/:dir/markdown", (ctx: Ctx) => {
+  /**
+   * Chatbot-ready export. `.json` costs ~7x the tokens of plain text and
+   * `.txt` loses all timing, so neither is a good prompt; this is both.
+   */
+  router.get("/api/meetings/:dir/ai", (ctx: Ctx) => {
     const dir = safeMeetingDir(state.config.outputRoot, ctx.params.dir as string);
     const record = readRecord(dir);
-    if (!record) throw notFound("meeting.json missing");
     const { segments } = parseSegments(dir);
-    const lines = [
-      `# ${basename(dir)}`,
-      "",
-      `- Date: ${record.createdAt}`,
-      `- Attendees: ${record.attendees.join(", ") || "—"}`,
-      `- Context: ${record.context || "—"}`,
-      `- Model: ${record.model}`,
-      "",
-      "## Transcript",
-      "",
-    ];
-    for (const s of segments) {
-      const stamp = new Date(s.start * 1000).toISOString().slice(11, 19);
-      const who = s.speaker ? `**${s.speaker}:** ` : "";
-      lines.push(`- \`${stamp}\` ${who}${s.text}`);
-    }
-    const body = `${lines.join("\n")}\n`;
-    sendJson(ctx.res, 200, { markdown: body });
+    const paragraphSeconds = Number(ctx.url.searchParams.get("paragraphSeconds") ?? 60) || 60;
+    const markdown = buildAiMarkdown(basename(dir), record, segments, { paragraphSeconds });
+    return { markdown, tokens: estimateTokens(markdown), segments: segments.length };
+  });
+
+  /** Several meetings in one prompt, for "summarise my week". */
+  router.post("/api/export/ai", (ctx: Ctx) => {
+    const body = (ctx.body ?? {}) as Record<string, unknown>;
+    assertNoUnknownKeys(body, ["dirs", "paragraphSeconds"]);
+    const dirs = Array.isArray(body.dirs) ? (body.dirs as string[]) : [];
+    if (dirs.length === 0) throw badRequest("`dirs` must list at least one meeting");
+    const paragraphSeconds = typeof body.paragraphSeconds === "number" ? body.paragraphSeconds : 60;
+    const parts = dirs.map((name) => {
+      const dir = safeMeetingDir(state.config.outputRoot, name);
+      return { name: basename(dir), record: readRecord(dir), segments: parseSegments(dir).segments };
+    });
+    const markdown =
+      parts.length === 1 && parts[0]
+        ? buildAiMarkdown(parts[0].name, parts[0].record, parts[0].segments, { paragraphSeconds })
+        : buildCombinedMarkdown(parts, { paragraphSeconds });
+    return { markdown, tokens: estimateTokens(markdown), meetings: parts.length };
+  });
+
+  /** Every artifact of one meeting, plus the AI markdown, as a zip. */
+  router.get("/api/meetings/:dir/zip", (ctx: Ctx) => {
+    const dir = safeMeetingDir(state.config.outputRoot, ctx.params.dir as string);
+    const name = basename(dir);
+    const record = readRecord(dir);
+    const { segments } = parseSegments(dir);
+
+    const entries = readdirSync(dir)
+      .filter((f) => {
+        try {
+          return statSync(join(dir, f)).isFile() && !f.endsWith(".wav");
+        } catch {
+          return false;
+        }
+      })
+      .map((f) => ({ name: `${name}/${f}`, data: readFileSync(join(dir, f)) }));
+    entries.push({
+      name: `${name}/${name}.ai.md`,
+      data: Buffer.from(buildAiMarkdown(name, record, segments), "utf8"),
+    });
+
+    const zip = createZip(entries);
+    ctx.res.writeHead(200, {
+      "content-type": "application/zip",
+      "content-length": zip.length,
+      "content-disposition": `attachment; filename="${name}.zip"`,
+    });
+    ctx.res.end(zip);
     return undefined;
   });
 }
