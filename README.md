@@ -412,6 +412,11 @@ Read [docs/PROJECT.md](docs/PROJECT.md) before changing anything — it exists s
 you do not have to read every file. Tests use `node:test`; there is no test
 runner dependency.
 
+## Contributing
+
+Pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; it
+covers setup, the house rules, and what is deliberately out of scope.
+
 ## Privacy
 
 Everything runs locally: no uploads, no API calls, no telemetry.
@@ -424,4 +429,6 @@ files it created itself in `~/.wg/work/`.
 
 ## License
 
-MIT
+[MIT](LICENSE) — use it, change it, ship it, commercially or not. The only
+condition is that the copyright notice travels with it, and there is no
+warranty.

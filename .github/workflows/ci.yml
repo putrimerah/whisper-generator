@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install server dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install web dependencies
+        run: npm --prefix web ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Unit tests only: no GPU, ffmpeg or Whisper on the runner, so the
+      # suite deliberately avoids depending on them.
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # `make privacy` is a local pre-publish guard. It greps for the current
+      # machine's username, which on a runner is "runner" and collides with
+      # ordinary words, so CI checks only for committed secrets and media.
+      - name: Check for committed secrets or media
+        run: |
+          fail=0
+          if git grep -nE 'hf_[A-Za-z0-9]{20,}' -- . 2>/dev/null | grep -qvE 'your_token|x{8}'; then
+            echo "::error::a HuggingFace token looks committed"; fail=1
+          fi
+          if git ls-files | grep -qiE '\.(mp4|mkv|wav|mp3|srt|vtt)$|^medias/|^\.env$'; then
+            echo "::error::media, transcripts or .env are tracked"; fail=1
+          fi
+          exit $fail
