@@ -19,3 +19,6 @@ web/dist/
 
 # Makefile dev helper
 .dev.pid
+
+# per-machine settings, never committed
+.env

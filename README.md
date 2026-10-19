@@ -71,7 +71,32 @@ whole script on the Windows clipboard.
 
 ## Config
 
-`wg.config.json` in the project directory, or `~/.wg/wg.config.json`. Flags win over config.
+Three layers, strongest first:
+
+```
+CLI flags  >  .env  >  wg.config.json  >  built-in defaults
+```
+
+`.env` is the per-machine layer and is git-ignored; it is created from
+`.env.example` on your first `make`. Put folders and tokens there.
+
+```ini
+WG_BROWSE_ROOT=C:\Users\mirfa\Videos                              # picker opens here
+WG_OUTPUT_ROOT=C:\Users\mirfa\OneDrive\Documents\transcripts      # transcripts land here
+WG_MODEL=large-v3
+WG_LANGUAGE=en
+WG_KEEP_AUDIO=false
+#WG_ATTENDEES=Irfan
+#WG_TERMS=Kafka,Sybil
+#WG_HF_TOKEN=hf_...        # speaker labels
+#WG_PORT=7788
+```
+
+Windows paths are accepted in every variable and converted automatically.
+`wg plan` prints which config file and `.env` were used.
+
+`wg.config.json` in the project directory, or `~/.wg/wg.config.json`, holds
+shared defaults. Flags win over everything.
 
 `outputRoot` accepts Windows paths (`C:\Users\you\Documents\transcripts`),
 `/mnt/c/...` paths, or plain WSL paths; all are normalised. It defaults to the

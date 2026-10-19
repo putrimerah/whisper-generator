@@ -121,8 +121,16 @@ export interface Favorite {
   path: string;
 }
 
-/** Where the browser opens before the user has picked anything. */
-export function defaultBrowsePath(): string | null {
+/**
+ * Where the file browser opens before the user picks anything.
+ * `browseRoot` comes from WG_BROWSE_ROOT or wg.config.json; without it the
+ * Windows Videos folder is used, because screen recorders write there.
+ */
+export function defaultBrowsePath(browseRoot = ""): string | null {
+  if (browseRoot.trim() !== "") {
+    const configured = resolve(toWslPath(browseRoot));
+    if (existsSync(configured)) return configured;
+  }
   const winHome = windowsUserDir();
   if (!winHome) return null;
   const videos = join(winHome, "Videos");
@@ -143,8 +151,11 @@ export function windowsUserDir(): string | null {
   }
 }
 
-export function favorites(outputRoot: string): Favorite[] {
+export function favorites(outputRoot: string, browseRoot = ""): Favorite[] {
   const list: Favorite[] = [];
+  if (browseRoot.trim() !== "") {
+    list.push({ label: "Recordings", path: resolve(toWslPath(browseRoot)) });
+  }
   const winHome = windowsUserDir();
   if (winHome) {
     // Videos first: screen recorders write there and it is not redirected.

@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { CONFIG_FILENAME, DEFAULT_CONFIG, loadConfig } from "./config.ts";
+import { readEnvSettings } from "./env.ts";
 import {
   describePlan,
   detectHost,
@@ -163,20 +164,23 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  const { config, source } = loadConfig();
+  const { config, source, envFile } = loadConfig();
   const engine = str(flags, "engine", config.engine) as Engine;
   const plan = resolvePlan(engine, detectHost());
 
   switch (command) {
     case "ui": {
       const { startServer, DEFAULT_PORT } = await import("./server/server.ts");
-      const port = Number(str(flags, "port", String(DEFAULT_PORT)));
+      // Precedence: --port > WG_PORT > built-in default.
+      const envPort = readEnvSettings().port;
+      const port = Number(str(flags, "port", String(envPort ?? DEFAULT_PORT)));
       if (!Number.isInteger(port) || port < 1 || port > 65535) {
         throw new Error(`invalid --port: ${port}`);
       }
       const server = await startServer({ port });
       process.stdout.write(`whisper-generator UI on ${server.url}\n`);
       process.stdout.write(`output root: ${config.outputRoot}\n`);
+      if (envFile) process.stdout.write(`env file:    ${envFile}\n`);
       if (flags.open === true) {
         // Browser lives on Windows; WSL2 forwards loopback automatically.
         const child = spawn(
@@ -216,6 +220,7 @@ async function main(argv: string[]): Promise<number> {
           `shell:   ${plan.shell}`,
           `how:     ${describePlan(plan)}`,
           `config:  ${source ?? "defaults (no wg.config.json found)"}`,
+          `env:     ${envFile ?? "none (.env not found)"}`,
           "",
           JSON.stringify(config, null, 2),
           "",

@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { readEnvSettings } from "./env.ts";
 import { windowsSpecialFolder, windowsUserHome } from "./platform.ts";
 import type { Config } from "./types.ts";
 
@@ -27,6 +28,8 @@ export const DEFAULT_CONFIG: Config = {
   computeType: "int8_float16",
   outputFormats: ["srt", "vtt", "txt", "json"],
   outputRoot: defaultOutputRoot(),
+  // Empty: fsService falls back to the Windows Videos folder.
+  browseRoot: "",
   // Prefer the managed venv; fall back to PATH for Windows-native installs.
   whisperPath: existsSync(VENV_WHISPER) ? VENV_WHISPER : "whisper",
   ffmpegPath: "ffmpeg",
@@ -54,15 +57,30 @@ export function configSearchPaths(cwd = process.cwd()): string[] {
   return [join(cwd, CONFIG_FILENAME), join(homedir(), ".wg", CONFIG_FILENAME)];
 }
 
-export function loadConfig(cwd = process.cwd()): { config: Config; source: string | null } {
+/**
+ * Precedence: .env  >  wg.config.json  >  built-in defaults.
+ * CLI flags are applied by the caller and win over all of them.
+ */
+export function loadConfig(cwd = process.cwd()): {
+  config: Config;
+  source: string | null;
+  envFile: string | null;
+} {
+  const env = readEnvSettings(cwd);
+  const envFile = existsSync(join(cwd, ".env")) ? join(cwd, ".env") : null;
+
   for (const path of configSearchPaths(cwd)) {
     if (!existsSync(path)) continue;
     try {
       const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<Config>;
-      return { config: { ...DEFAULT_CONFIG, ...parsed }, source: path };
+      return {
+        config: { ...DEFAULT_CONFIG, ...parsed, ...env.config },
+        source: path,
+        envFile,
+      };
     } catch (err) {
       throw new Error(`invalid config at ${path}: ${(err as Error).message}`);
     }
   }
-  return { config: { ...DEFAULT_CONFIG }, source: null };
+  return { config: { ...DEFAULT_CONFIG, ...env.config }, source: null, envFile };
 }

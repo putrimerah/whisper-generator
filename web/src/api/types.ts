@@ -59,6 +59,7 @@ export interface PromptResult {
 export interface Config {
   engine: string; model: string; language: string; device: string;
   computeType: string; outputFormats: string[]; outputRoot: string;
+  browseRoot: string;
   whisperPath: string; ffmpegPath: string; extractAudio: boolean;
   keepAudio: boolean; wordTimestamps: boolean;
   hfToken: string; diarize: boolean; speakerCount: number;

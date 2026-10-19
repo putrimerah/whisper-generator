@@ -29,10 +29,28 @@ export default function Settings() {
 
   return (
     <div className="space-y-4">
-      <Card title="Output">
-        <Field label="Output root" hint="Windows paths are accepted: C:\Users\you\Documents\transcripts">
-          <input className={inputClass} value={draft.outputRoot} onChange={(e) => set("outputRoot", e.target.value)} />
-        </Field>
+      <Card title="Folders">
+        <div className="space-y-4">
+          <Field
+            label="Recordings folder"
+            hint="Where the file browser opens. Leave empty to use the Windows Videos folder."
+          >
+            <input
+              className={inputClass}
+              value={draft.browseRoot}
+              placeholder="C:\Users\you\Videos"
+              onChange={(e) => set("browseRoot", e.target.value)}
+            />
+          </Field>
+          <Field label="Output root" hint="Windows paths are accepted: C:\Users\you\OneDrive\Documents\transcripts">
+            <input className={inputClass} value={draft.outputRoot} onChange={(e) => set("outputRoot", e.target.value)} />
+          </Field>
+          <p className="text-xs text-slate-400">
+            Settings saved here live in <code>wg.config.json</code>. Values in{" "}
+            <code>.env</code> take priority over them, so clear the matching{" "}
+            <code>WG_*</code> line if a change here appears to be ignored.
+          </p>
+        </div>
       </Card>
 
       <Card title="Model">

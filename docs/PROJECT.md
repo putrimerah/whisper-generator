@@ -46,6 +46,25 @@ C:\Users\mirfa\Videos\meeting.mp4      READ ONLY. never moved, renamed, deleted
 The wav carries the source stem because Whisper names its outputs after the
 file it reads. Naming it `audio.wav` produced `audio.srt`; that was a bug.
 
+## 3a. Settings precedence
+
+```
+CLI flags  >  .env  >  wg.config.json (project, then ~/.wg)  >  built-in defaults
+```
+
+`.env` sits above the config file because it is the per-machine, git-ignored
+layer: folders and secrets that differ between machines. `wg.config.json`
+holds shared defaults and is what the Settings screen writes.
+
+Variables: `WG_BROWSE_ROOT WG_OUTPUT_ROOT WG_MODEL WG_LANGUAGE
+WG_COMPUTE_TYPE WG_DEVICE WG_KEEP_AUDIO WG_WORD_TIMESTAMPS WG_OUTPUT_FORMATS
+WG_ATTENDEES WG_TERMS WG_CONTEXT WG_HF_TOKEN WG_DIARIZE WG_SPEAKER_COUNT
+WG_WHISPER_PATH WG_FFMPEG_PATH WG_PORT`. All path variables accept Windows
+form. `make` creates `.env` from `.env.example` when it is missing.
+
+Gotcha to remember: a `.env` value silently overrides the Settings screen.
+The Settings screen says so on the Folders card.
+
 ## 4. Non-negotiable rules
 
 1. **Never delete, move, rename or overwrite a user file.** Only files this
@@ -84,7 +103,8 @@ Installed by `scripts/install-wsl.sh`, user-level, idempotent, no sudo.
 | File | Responsibility |
 |---|---|
 | `cli.ts` | commands: `run script prompt plan doctor init ui` |
-| `config.ts` | defaults + `wg.config.json` loading; `defaultOutputRoot()` follows the OneDrive redirect |
+| `config.ts` | defaults + `wg.config.json` loading, merged with `.env`; `defaultOutputRoot()` follows the OneDrive redirect |
+| `env.ts` | `.env` support via `process.loadEnvFile()`; maps `WG_*` to `Config` keys |
 | `types.ts` | `Config`, `RunOptions`, `MeetingRecord`, `Command`, `ExecutionPlan` |
 | `prompt.ts` | `initial_prompt` builder, 224-token budget, trims from the front so names and glossary survive |
 | `pipeline.ts` | builds ffmpeg and Whisper argv; `outputFormatArg()` (one value or `all`, never a comma list) |

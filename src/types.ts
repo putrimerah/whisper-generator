@@ -25,6 +25,8 @@ export interface Config {
   outputFormats: string[];
   /** Root directory for outputs when --out is omitted. */
   outputRoot: string;
+  /** Where the file browser opens. Empty means auto-detect the Videos folder. */
+  browseRoot: string;
   whisperPath: string;
   ffmpegPath: string;
   /**

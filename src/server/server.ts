@@ -3,6 +3,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "../config.ts";
+import { readEnvSettings } from "../env.ts";
 import { detectHost, resolvePlan } from "../platform.ts";
 import type { Config, ExecutionPlan } from "../types.ts";
 import { ApiError } from "./errors.ts";
@@ -62,7 +63,7 @@ export interface UiServer {
 }
 
 export async function startServer(options: { port?: number; cwd?: string } = {}): Promise<UiServer> {
-  const port = options.port ?? DEFAULT_PORT;
+  const port = options.port ?? readEnvSettings(options.cwd ?? process.cwd()).port ?? DEFAULT_PORT;
   const cwd = options.cwd ?? process.cwd();
   const { config } = loadConfig(cwd);
   const plan: ExecutionPlan = resolvePlan(config.engine, detectHost());

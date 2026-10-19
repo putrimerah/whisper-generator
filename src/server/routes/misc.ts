@@ -25,7 +25,10 @@ export function registerMiscRoutes(router: Router, state: AppState): void {
     const dirsOnly = ctx.url.searchParams.get("dirsOnly") === "true";
     const showHidden = ctx.url.searchParams.get("showHidden") === "true";
     if (path === "") {
-      return { favorites: favorites(state.config.outputRoot), defaultPath: defaultBrowsePath() };
+      return {
+        favorites: favorites(state.config.outputRoot, state.config.browseRoot),
+        defaultPath: defaultBrowsePath(state.config.browseRoot),
+      };
     }
     return listDirectory(path, {
       dirsOnly,
@@ -35,8 +38,8 @@ export function registerMiscRoutes(router: Router, state: AppState): void {
   });
 
   router.get("/api/fs/favorites", () => ({
-    favorites: favorites(state.config.outputRoot),
-    defaultPath: defaultBrowsePath(),
+    favorites: favorites(state.config.outputRoot, state.config.browseRoot),
+    defaultPath: defaultBrowsePath(state.config.browseRoot),
   }));
 
   router.post("/api/fs/resolve", (ctx: Ctx) => {

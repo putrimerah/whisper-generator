@@ -5,7 +5,8 @@ import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 import { JobStore } from "./jobStore.ts";
 import { makeJobId, TERMINAL_STATES } from "./jobTypes.ts";
-import { isPathAllowed, planOutputTarget, toWindowsDisplayPath, isMediaPath, nextFreeDir } from "./fsService.ts";
+import { isPathAllowed, planOutputTarget, toWindowsDisplayPath, isMediaPath, nextFreeDir, defaultBrowsePath } from "./fsService.ts";
+import { readEnvSettings } from "../env.ts";
 import { estimateNeeded, formatBytes, SAFETY_MARGIN_BYTES } from "./disk.ts";
 import { cleanupWorkspace, wavPathFor } from "./workspace.ts";
 import { parseSrt, srtTimeToSeconds } from "./routes/meetings.ts";
@@ -232,4 +233,40 @@ test("zip has a valid signature and holds every entry", () => {
   assert.equal(zip.readUInt16LE(zip.length - 14), 2); // entry count
   assert.ok(zip.includes(Buffer.from("a/one.txt")));
   assert.equal(crc32(Buffer.from("hello")), 0x3610a686);
+});
+
+test("env settings override config, windows paths converted", () => {
+  const previous = { ...process.env };
+  process.env.WG_BROWSE_ROOT = "C:\\Users\\someone\\Videos";
+  process.env.WG_OUTPUT_ROOT = "D:/transcripts";
+  process.env.WG_MODEL = "medium";
+  process.env.WG_KEEP_AUDIO = "true";
+  process.env.WG_TERMS = "Kafka, Sybil ,";
+  process.env.WG_PORT = "9001";
+
+  const env = readEnvSettings("/nonexistent-dir-so-no-dotenv-is-read");
+  assert.equal(env.config.browseRoot, "/mnt/c/Users/someone/Videos");
+  assert.equal(env.config.outputRoot, "/mnt/d/transcripts");
+  assert.equal(env.config.model, "medium");
+  assert.equal(env.config.keepAudio, true);
+  assert.deepEqual(env.config.terms, ["Kafka", "Sybil"]);
+  assert.equal(env.port, 9001);
+
+  process.env = previous;
+});
+
+test("absent env vars leave config untouched", () => {
+  const previous = { ...process.env };
+  for (const key of Object.keys(process.env)) {
+    if (key.startsWith("WG_")) delete process.env[key];
+  }
+  const env = readEnvSettings("/nonexistent-dir-so-no-dotenv-is-read");
+  assert.deepEqual(env.config, {});
+  assert.equal(env.port, null);
+  process.env = previous;
+});
+
+test("browse path falls back when the configured root is missing", () => {
+  // A stale WG_BROWSE_ROOT must not strand the picker on a dead path.
+  assert.notEqual(defaultBrowsePath("/mnt/c/definitely-not-here"), "/mnt/c/definitely-not-here");
 });

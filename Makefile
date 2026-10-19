@@ -10,7 +10,9 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := run
 
-PORT ?= 7788
+# PORT: command line > WG_PORT in .env > 7788
+ENV_PORT := $(shell [ -f .env ] && grep -E '^WG_PORT=' .env | tail -1 | cut -d= -f2 | tr -d ' \r')
+PORT ?= $(if $(ENV_PORT),$(ENV_PORT),7788)
 NODE := node
 VENV := $(HOME)/.wg/venv
 WHISPER := $(VENV)/bin/whisper-ctranslate2
@@ -23,18 +25,20 @@ BOLD := \033[1m
 DIM := \033[2m
 OFF := \033[0m
 
-.PHONY: run start dev stop build test check doctor setup install link clean reset update help transcribe
+.PHONY: run start dev stop build test check doctor setup install link clean reset update help transcribe env
+
+env: .env ## Create .env from .env.example if missing
 
 ## ---------------------------------------------------------------- main
 
-run: build ## Build if needed, start the web app, open the browser
+run: .env build ## Build if needed, start the web app, open the browser
 	@echo -e "$(BOLD)whisper-generator$(OFF) → http://localhost:$(PORT)"
 	@$(MAKE) --no-print-directory stop
 	@$(NODE) dist/cli.js ui --port $(PORT) --open
 
 start: run ## Alias for `make run`
 
-dev: node_modules web/node_modules ## Live-reloading UI (Vite on 5173, API on 7788)
+dev: .env node_modules web/node_modules ## Live-reloading UI (Vite on 5173, API on 7788)
 	@echo -e "$(DIM)API on $(PORT), UI on 5173 with hot reload$(OFF)"
 	@$(MAKE) --no-print-directory stop
 	@npm run build:server >/dev/null
@@ -57,6 +61,10 @@ dist/cli.js: $(SERVER_SRC) tsconfig.json package.json | node_modules
 web/dist/index.html: $(WEB_SRC) | web/node_modules
 	@echo -e "$(DIM)building web app…$(OFF)"
 	@npm --prefix web run build >/dev/null
+
+.env: .env.example
+	@test -f .env || { cp .env.example .env; echo -e "$(GREEN)created .env$(OFF) from .env.example — edit it to change default folders"; }
+	@touch .env
 
 node_modules: package.json
 	@echo -e "$(DIM)installing server dependencies…$(OFF)"
