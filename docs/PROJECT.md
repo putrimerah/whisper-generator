@@ -211,6 +211,10 @@ Same 45-second clip:
 
 ## 12. Commands
 
+`make` is the entry point; it installs what is missing, rebuilds only what
+changed, and opens the web app. `make help` lists every target. The npm
+scripts below are what those targets call.
+
 ```bash
 npm run build        # server + web
 npm test             # 29 tests, node:test, no runner dependency

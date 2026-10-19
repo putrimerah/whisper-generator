@@ -33,10 +33,10 @@ Other documents:
 ## Before committing
 
 ```bash
-npm run typecheck && npm test && npm run build
+make check
 ```
 
-All three must pass. Tests are `node:test`, no runner dependency.
+Typecheck, tests and build must all pass. Tests are `node:test`, no runner dependency.
 
 ## Caveman voice: always on
 

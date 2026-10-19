@@ -11,11 +11,40 @@ wg run "C:/recordings/standup.mp4" --attendees "Irfan,Aisyah" --context "Weekly 
 It extracts audio (optional), builds a token-budgeted Whisper `initial_prompt`,
 runs OpenAI Whisper, and writes a `meeting.json` sidecar so a run is reproducible.
 
+## One command
+
+```bash
+make
+```
+
+Installs anything missing, rebuilds only what changed, starts the web app and
+opens it in the Windows browser.
+
+| Command | Does |
+|---|---|
+| `make` | build and open the web app |
+| `make install` | full setup, including ffmpeg and Whisper (no sudo) |
+| `make dev` | live-reloading UI on port 5173 |
+| `make doctor` | check ffmpeg, Whisper, CUDA, VRAM vs model |
+| `make test` / `make check` | tests / typecheck + tests + build |
+| `make transcribe FILE=x.mp4` | transcribe from the terminal |
+| `make stop` | stop a running server |
+| `make link` | put `wg` on your PATH |
+| `make help` | list everything |
+
+Override the port with `make PORT=8080`.
+
 ## Install
 
 ```bash
+make install     # dependencies, ffmpeg, whisper-ctranslate2, CUDA libs, build
+```
+
+Or by hand:
+
+```bash
 npm install && npm run build && npm link   # exposes `wg`
-bash scripts/install-wsl.sh                # ffmpeg + Whisper + CUDA torch, no sudo
+bash scripts/install-wsl.sh                # ffmpeg + Whisper + CUDA libs, no sudo
 wg doctor                                  # verify
 ```
 

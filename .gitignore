@@ -16,3 +16,6 @@ out/
 whisper-generator/
 web/node_modules/
 web/dist/
+
+# Makefile dev helper
+.dev.pid
