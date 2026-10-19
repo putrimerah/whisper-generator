@@ -73,6 +73,12 @@ export function whisperCommand(
     args.push("--fp16", opts.device === "cuda" ? "True" : "False");
   }
   if (opts.wordTimestamps) args.push("--word_timestamps", "True");
+  // Diarization: pyannote via HuggingFace. Without a token the flag is
+  // rejected, so both must be present before it is added.
+  if (opts.diarize && cfg.hfToken !== "") {
+    args.push("--hf_token", cfg.hfToken);
+    if (opts.speakerCount > 0) args.push("--speaker_num", String(opts.speakerCount));
+  }
   if (prompt) args.push("--initial_prompt", prompt);
   return { label: "Transcribe with Whisper", bin: cfg.whisperPath, args };
 }

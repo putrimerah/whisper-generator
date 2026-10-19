@@ -14,3 +14,5 @@ out/
 
 # Stray nested clone, not part of this project
 whisper-generator/
+web/node_modules/
+web/dist/

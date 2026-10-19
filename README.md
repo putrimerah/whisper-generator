@@ -30,6 +30,7 @@ Whisper into a venv at `~/.wg/venv`. Nothing touches system directories, so no
 | `wg run <input>` | Extract (optional) + transcribe, live progress |
 | `wg script <input>` | Print a PowerShell/bash script instead of running it |
 | `wg prompt` | Preview the `initial_prompt` and its token count |
+| `wg ui [--port N] [--open]` | Local web app: picker, live progress, library |
 | `wg doctor` | Check ffmpeg, Whisper, CUDA, VRAM vs model |
 | `wg plan` | Show host, engine, resolved config |
 | `wg init [--global]` | Write a `wg.config.json` starter |
@@ -111,13 +112,41 @@ out/standup/
 
 `meeting.json` carries a `speakers` field, `null` until diarization lands.
 
+## Web UI
+
+```bash
+npm run build
+wg ui --open            # http://localhost:7788, opens in the Windows browser
+```
+
+- **New run** — browse `/mnt/c` server-side (no upload), or paste a Windows
+  path; live prompt meter against the 224-token budget; model, language and
+  compute selectors; output folder picker.
+- **Jobs** — live progress over SSE, ETA, cancel, retry, log tail.
+- **Library** — every past meeting, transcript viewer with click-to-seek audio,
+  in-transcript search, Markdown export.
+- **Glossary loop** — select a misheard word in the transcript and add it to
+  `terms`; every later run spells it correctly.
+- **Search** — full-text across all transcripts.
+- **Speakers** — with a HuggingFace token, diarization labels speakers; map
+  `SPEAKER_00` to a real name once and it is stored in `meeting.json`.
+- **Health** — the `wg doctor` checks plus disk figures.
+
+The server binds `127.0.0.1` only and never uploads or copies your recordings:
+sources are read in place and only the extracted audio lives in WSL, deleted
+after a verified transcript unless `keepAudio` is on.
+
+## Speaker labels (diarization)
+
+1. Accept the licence for `pyannote/speaker-diarization` on huggingface.co.
+2. Paste your token into Settings, or set `hfToken` in `wg.config.json`.
+3. Run with `--diarize` (CLI) or the Speakers toggle (UI).
+
 ## Roadmap
 
-- **P2** — local web UI (`wg ui`): form, job queue, live log, transcript preview,
-  speaker-label → name mapping.
-- **P2** — `--diarize` via WhisperX + pyannote, fills `speakers`.
-- **P3** — voice enrollment so speaker labels auto-resolve to names; LLM-written
-  context and post-meeting summary/action items.
+- Voice enrollment so speaker labels resolve to names automatically.
+- LLM summaries and action items.
+- Watch folder for drop-in transcription.
 
 ## Development
 

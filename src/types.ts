@@ -34,6 +34,12 @@ export interface Config {
   extractAudio: boolean;
   /** Keep the extracted wav next to the transcript so a re-run skips ffmpeg. */
   keepAudio: boolean;
+  /** HuggingFace token for pyannote diarization. Empty disables diarization. */
+  hfToken: string;
+  /** Label speakers in the transcript. Requires hfToken. */
+  diarize: boolean;
+  /** Known speaker count, 0 lets pyannote decide. */
+  speakerCount: number;
   wordTimestamps: boolean;
   /** Attendees reused across meetings; per-run --attendees is merged on top. */
   attendees: string[];
@@ -56,6 +62,8 @@ export interface RunOptions {
   outputFormats: string[];
   extractAudio: boolean;
   wordTimestamps: boolean;
+  diarize: boolean;
+  speakerCount: number;
 }
 
 export interface Command {

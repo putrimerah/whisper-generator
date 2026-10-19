@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
+import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
@@ -27,6 +28,7 @@ Usage:
   wg run <input> [options]      Extract audio (optional) + transcribe
   wg script <input> [options]   Print a PowerShell/bash script instead of running
   wg prompt [options]           Preview the Whisper initial_prompt
+  wg ui [--port N] [--open]     Start the local web app
   wg doctor                     Check ffmpeg, Whisper, CUDA, and model fit
   wg plan                       Show host, engine, and resolved config
   wg init [--global]            Write a ${CONFIG_FILENAME} starter
@@ -46,6 +48,8 @@ Options:
   --formats <list>       Output formats (default: ${DEFAULT_CONFIG.outputFormats.join(",")})
   --extract              Extract 16 kHz mono wav first
   --word-timestamps      Per-word timings (slower; falls back on alignment bug)
+  --diarize              Label speakers (needs hfToken in wg.config.json)
+  --speakers <n>         Known speaker count, improves diarization
   --dry-run              Show what would run, change nothing
   -h, --help             This text
 
@@ -67,9 +71,13 @@ const OPTIONS = {
   formats: { type: "string" },
   extract: { type: "boolean" },
   "word-timestamps": { type: "boolean" },
+  diarize: { type: "boolean" },
+  speakers: { type: "string" },
   "no-word-timestamps": { type: "boolean" },
   "dry-run": { type: "boolean" },
   global: { type: "boolean" },
+  port: { type: "string" },
+  open: { type: "boolean" },
   help: { type: "boolean", short: "h" },
 } as const;
 
@@ -116,6 +124,8 @@ function buildRunOptions(cfg: Config, flags: Flags, input: string): RunOptions {
         : flags["word-timestamps"] === true
           ? true
           : cfg.wordTimestamps,
+    diarize: flags.diarize === true ? true : cfg.diarize,
+    speakerCount: Number(str(flags, "speakers", String(cfg.speakerCount))) || 0,
   };
 }
 
@@ -158,6 +168,35 @@ async function main(argv: string[]): Promise<number> {
   const plan = resolvePlan(engine, detectHost());
 
   switch (command) {
+    case "ui": {
+      const { startServer, DEFAULT_PORT } = await import("./server/server.ts");
+      const port = Number(str(flags, "port", String(DEFAULT_PORT)));
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new Error(`invalid --port: ${port}`);
+      }
+      const server = await startServer({ port });
+      process.stdout.write(`whisper-generator UI on ${server.url}\n`);
+      process.stdout.write(`output root: ${config.outputRoot}\n`);
+      if (flags.open === true) {
+        // Browser lives on Windows; WSL2 forwards loopback automatically.
+        const child = spawn(
+          "powershell.exe",
+          ["-NoProfile", "-Command", "Start-Process", server.url],
+          { detached: true, stdio: "ignore" },
+        );
+        child.on("error", () => process.stderr.write(`could not open a browser; visit ${server.url}\n`));
+        child.unref();
+      }
+      const shutdown = () => {
+        process.stderr.write("\nshutting down...\n");
+        void server.close().then(() => process.exit(0));
+      };
+      process.on("SIGINT", shutdown);
+      process.on("SIGTERM", shutdown);
+      await new Promise(() => {}); // run until signalled
+      return 0;
+    }
+
     case "doctor": {
       const checks = runDoctor(config, plan);
       process.stdout.write(formatChecks(checks));

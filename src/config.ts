@@ -35,6 +35,11 @@ export const DEFAULT_CONFIG: Config = {
   extractAudio: false,
   // Derived file, safe to delete; off keeps the WSL disk small.
   keepAudio: false,
+  // Diarization needs a HuggingFace token and acceptance of the pyannote
+  // licence. Empty token keeps the feature off and costs nothing.
+  hfToken: "",
+  diarize: false,
+  speakerCount: 0,
   // Opt-in: faster-whisper 1.2.x has an alignment crash; segment timestamps
   // in srt/vtt are unaffected and enough for reading.
   wordTimestamps: false,

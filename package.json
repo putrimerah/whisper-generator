@@ -10,10 +10,14 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && npm run build:web",
     "dev": "node --experimental-strip-types src/cli.ts",
-    "test": "node --experimental-strip-types --test src/**/*.test.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "test": "node --experimental-strip-types --test src/prompt.test.ts src/server/server.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:server": "tsc -p tsconfig.json",
+    "build:web": "npm --prefix web run build",
+    "dev:web": "npm --prefix web run dev",
+    "ui": "node dist/cli.js ui --open"
   },
   "files": [
     "dist"
