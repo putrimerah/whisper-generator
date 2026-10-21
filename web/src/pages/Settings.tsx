@@ -23,7 +23,7 @@ export default function Settings() {
     },
   });
 
-  if (!draft) return <Card><p className="text-sm text-slate-400">Loading…</p></Card>;
+  if (!draft) return <Card><p className="text-sm text-zinc-400">Loading…</p></Card>;
   const set = <K extends keyof Config>(key: K, value: Config[K]) =>
     setDraft({ ...draft, [key]: value });
 
@@ -45,7 +45,7 @@ export default function Settings() {
           <Field label="Output root" hint="Windows paths are accepted: C:\Users\you\OneDrive\Documents\transcripts">
             <input className={inputClass} value={draft.outputRoot} onChange={(e) => set("outputRoot", e.target.value)} />
           </Field>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-zinc-400">
             Settings saved here live in <code>wg.config.json</code>. Values in{" "}
             <code>.env</code> take priority over them, so clear the matching{" "}
             <code>WG_*</code> line if a change here appears to be ignored.

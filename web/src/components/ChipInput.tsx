@@ -70,7 +70,7 @@ export default function ChipInput({
               key={s}
               type="button"
               onClick={() => commit(s)}
-              className="rounded-md border border-slate-700 px-2 py-0.5 text-xs text-slate-400 hover:bg-slate-800"
+              className="rounded-md border border-zinc-700 px-2 py-0.5 text-xs text-zinc-400 hover:bg-zinc-800"
             >
               + {s}
             </button>

@@ -70,6 +70,9 @@ WG_ATTENDEES WG_TERMS WG_CONTEXT WG_HF_TOKEN WG_DIARIZE WG_SPEAKER_COUNT
 WG_WHISPER_PATH WG_FFMPEG_PATH WG_PORT`. All path variables accept Windows
 form. `make` creates `.env` from `.env.example` when it is missing.
 
+`WG_STATE_DIR` (shell only, read at startup) moves jobs, temporary audio and
+caches out of `~/.wg`. `make demo` sets it so the demo has its own job history.
+
 Gotcha to remember: a `.env` value silently overrides the Settings screen.
 The Settings screen says so on the Folders card.
 
@@ -138,17 +141,29 @@ Installed by `scripts/install-wsl.sh`, user-level, idempotent, no sudo.
 | `runner.ts` | state machine, progress parsing, queue, verification, fallbacks |
 | `sse.ts` | Server-Sent Events with keepalive |
 | `aiExport.ts` | chatbot-ready Markdown, paragraph merging, token estimate |
+| `peaks.ts` | waveform envelope: ffmpeg decodes to 4 kHz PCM on stdout, RMS per 0.25 s, cached in `~/.wg/cache/peaks` |
 | `zip.ts` | dependency-free store-only ZIP writer |
-| `routes/misc.ts` | fs, probe, prompt, config, doctor, disk |
+| `routes/misc.ts` | fs, probe, prompt, config, doctor, gpu, disk |
 | `routes/jobs.ts` | job CRUD, SSE stream |
-| `routes/meetings.ts` | library, transcript, speakers, media Range, AI export, zip |
+| `routes/meetings.ts` | library, transcript, speakers, media Range, waveform peaks, AI export, zip |
 
 ### Web (`web/src/`)
 
 `pages/`: NewRun, Jobs, Library, Meeting, Search, Settings, Health.
-`components/`: FilePicker, ChipInput, DiskBanner, Ui (Card/Field/Button).
+`components/`: FilePicker, ChipInput, DiskBanner, Player (waveform audio
+player), Icon (inline SVG set), Ui (Card, Field, Button, Menu, Chip).
 `hooks/useJobStream.ts`: EventSource subscription.
 `api/client.ts` + `api/types.ts`: typed wrappers mirroring the server.
+`public/fonts/`: Inter and JetBrains Mono, self-hosted, SIL OFL.
+
+Look: dark zinc surfaces (`#09090b`), one indigo-to-violet accent for the
+primary action, the playhead and the AI card. Shared classes live in
+`Ui.tsx` (`surfaceClass`, `inputClass`, `buttonClass`).
+
+Meeting page: `?t=SECONDS` opens at that moment; Search results link there.
+Space plays and pauses, arrows skip 5 s. The playing line is highlighted and
+followed unless the user scrolled in the last 4 s. Per-format token bars use
+the real file sizes relative to `.txt`.
 
 ## 7. Job state machine
 
@@ -170,7 +185,7 @@ Base `http://127.0.0.1:7788`. Errors: `{ "error": { code, message, detail } }`.
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | liveness |
-| GET | `/api/fs?path=&dirsOnly=` | list a directory; empty path returns favorites + `defaultPath` |
+| GET | `/api/fs?path=&dirsOnly=` | list a directory; empty path returns favorites + `defaultPath`; `displayPath` shows home as `~` |
 | GET | `/api/fs/favorites` | favorites + default browse path |
 | POST | `/api/fs/resolve` | Windows path → WSL path |
 | GET | `/api/probe?path=` | duration, size, codec, ETA |
@@ -178,12 +193,14 @@ Base `http://127.0.0.1:7788`. Errors: `{ "error": { code, message, detail } }`.
 | GET/PUT | `/api/config` | read/write `wg.config.json` |
 | GET | `/api/doctor` | environment checks |
 | GET | `/api/disk` | free space + warning |
+| GET | `/api/gpu` | GPU name and VRAM from `nvidia-smi`, or `null`; asked once per server run |
 | GET/POST | `/api/jobs` | list / create |
 | GET/DELETE | `/api/jobs/:id` | read / cancel or remove |
 | POST | `/api/jobs/:id/retry` | clone settings into a new job |
 | GET | `/api/jobs/:id/stream` | SSE: `state progress log done error` |
 | GET | `/api/meetings?q=` | library, filtered |
-| GET | `/api/meetings/:dir` | one meeting |
+| GET | `/api/meetings/:dir` | one meeting, with `files` (name + bytes) and `media` (kept audio, else source, if it still exists) |
+| GET | `/api/meetings/:dir/peaks?buckets=` | waveform envelope, 0..1 per bucket, plus duration |
 | GET | `/api/meetings/:dir/transcript` | segments with speaker names applied |
 | PUT | `/api/meetings/:dir/speakers` | save label → name map |
 | GET | `/api/meetings/:dir/ai` | chatbot-ready Markdown + token count |
@@ -209,6 +226,11 @@ Base `http://127.0.0.1:7788`. Errors: `{ "error": { code, message, detail } }`.
 | Transcripts in OneDrive | user wants backup and multi-device access |
 | Store-only ZIP | text files on loopback; compression would buy nothing |
 | AI Markdown export | `.json` costs ~7x the tokens of `.txt`, `.txt` loses all timing; this keeps timing at ~`.txt` cost |
+| Waveform computed by the server | the browser cannot decode a 2 GB video; ffmpeg streams only the audio at 4 kHz and nothing is written but a small JSON cache |
+| Waveform bucket = mean, not max | max saturates during continuous speech and hides pauses; the player also stretches the range for display |
+| Inline SVG icons, self-hosted fonts | emoji showed as missing-glyph boxes on some hosts; no icon or font package added to the fixed dependency list |
+| No per-line speakers by default | diarization is opt-in; the viewer shows a speaker tag only when labels exist |
+| `make demo` with synthetic data | screenshots for posts and docs without real names, paths, recordings or job history |
 
 ## 10. Format cost, measured
 
@@ -245,9 +267,10 @@ scripts below are what those targets call.
 
 ```bash
 npm run build        # server + web
-npm test             # 29 tests, node:test, no runner dependency
+npm test             # 38 tests, node:test, no runner dependency
 npm run typecheck
 wg ui --open         # web app
+make demo            # web app on 7799 with fictional meetings (~/.wg/demo)
 wg run <file> --attendees "A,B" --context "..."
 wg doctor            # ffmpeg, whisper, CUDA libs, ctranslate2, VRAM vs model
 bash scripts/install-wsl.sh   # user-level install, no sudo

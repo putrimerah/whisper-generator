@@ -44,7 +44,7 @@ const MODEL_VRAM_GB: Record<string, number> = {
 };
 
 /** VRAM read from the driver, so no deep-learning runtime is required. */
-function gpuInfo(plan: ExecutionPlan): { name: string; vramGb: number } | null {
+export function gpuInfo(plan: ExecutionPlan): { name: string; vramGb: number } | null {
   const res = probe("nvidia-smi", ["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"], plan);
   if (!res.ok) return null;
   const [name, mib] = (res.out.split("\n")[0] ?? "").split(",").map((s) => s.trim());

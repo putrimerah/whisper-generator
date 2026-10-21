@@ -35,7 +35,7 @@ export interface DirEntry {
 }
 
 export interface DirListing {
-  path: string; windowsPath: string | null; parent: string | null; entries: DirEntry[];
+  path: string; windowsPath: string | null; displayPath: string; parent: string | null; entries: DirEntry[];
 }
 
 export interface Favorite { label: string; path: string }
@@ -78,6 +78,17 @@ export interface MeetingSummary {
   dir: string; path: string; record: MeetingRecord;
   outputs: string[]; sizeBytes: number;
 }
+
+export interface MeetingDetail {
+  dir: string; path: string; record: MeetingRecord;
+  outputs: string[]; files: { name: string; bytes: number }[];
+  /** Kept audio, else the source recording, whichever still exists. */
+  media: string | null;
+}
+
+export interface Peaks { duration: number; peaks: number[] }
+
+export interface GpuInfo { name: string; vramGb: number }
 
 export interface Segment {
   id: number; start: number; end: number; text: string; speaker: string | null;

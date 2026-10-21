@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import {
   LOG_TAIL_LIMIT,
   makeJobId,
@@ -10,7 +10,13 @@ import {
   type JobState,
 } from "./jobTypes.ts";
 
-export const WG_HOME = join(homedir(), ".wg");
+/**
+ * Jobs, temporary audio and caches. WG_STATE_DIR (absolute, read from the
+ * shell at startup) moves them elsewhere; `make demo` uses it so the demo
+ * never shows your real job history.
+ */
+const stateOverride = process.env.WG_STATE_DIR?.trim();
+export const WG_HOME = stateOverride && isAbsolute(stateOverride) ? stateOverride : join(homedir(), ".wg");
 export const JOBS_FILE = join(WG_HOME, "jobs.json");
 export const WORK_ROOT = join(WG_HOME, "work");
 

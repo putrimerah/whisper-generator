@@ -1,3 +1,40 @@
+/* Self-hosted so the UI looks the same offline. Both fonts are SIL OFL 1.1;
+   licences sit next to the files in public/fonts. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-latin.woff2") format("woff2");
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* Native selects, checkboxes and scrollbars follow the dark theme. */
+  html {
+    color-scheme: dark;
+    accent-color: #6366f1;
+  }
+  body {
+    font-feature-settings: "cv11", "ss01";
+  }
+}
+
+@layer utilities {
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  .fade-y {
+    mask-image: linear-gradient(to bottom, transparent, black 10px, black calc(100% - 40px), transparent);
+  }
+}

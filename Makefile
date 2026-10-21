@@ -25,7 +25,7 @@ BOLD := \033[1m
 DIM := \033[2m
 OFF := \033[0m
 
-.PHONY: run start dev stop build test check doctor setup install link clean reset update help transcribe env privacy hooks
+.PHONY: run start dev demo stop build test check doctor setup install link clean reset update help transcribe env privacy hooks
 
 env: .env ## Create .env from .env.example if missing
 
@@ -45,6 +45,15 @@ dev: .env node_modules web/node_modules ## Live-reloading UI (Vite on 5173, API 
 	@( $(NODE) dist/cli.js ui --port $(PORT) & echo $$! > .dev.pid ) ; \
 	 trap 'kill $$(cat .dev.pid) 2>/dev/null; rm -f .dev.pid' EXIT ; \
 	 npm --prefix web run dev
+
+DEMO := $(HOME)/.wg/demo
+DEMO_PORT ?= 7799
+
+demo: build ## Fictional meetings on port 7799 for screenshots; none of your data
+	@test -d "$(DEMO)/transcripts" || $(NODE) scripts/demo.mjs "$(DEMO)"
+	@echo -e "$(BOLD)demo$(OFF) → http://localhost:$(DEMO_PORT)/library  $(DIM)(Ctrl+C to stop, rm -rf $(DEMO) to reset)$(OFF)"
+	@WG_OUTPUT_ROOT="$(DEMO)/transcripts" WG_BROWSE_ROOT="$(DEMO)/videos" WG_STATE_DIR="$(DEMO)/state" \
+	 $(NODE) dist/cli.js ui --port $(DEMO_PORT) --open
 
 stop: ## Stop a server already listening on $(PORT)
 	@pid=$$(ss -lptn "sport = :$(PORT)" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -1) ; \

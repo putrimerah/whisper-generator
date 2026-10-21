@@ -134,7 +134,7 @@ export default function NewRun() {
 
   const meterPercent = prompt ? Math.min(100, (prompt.tokens / prompt.budget) * 100) : 0;
   const meterColor = !prompt
-    ? "bg-slate-700"
+    ? "bg-zinc-700"
     : prompt.truncated
       ? "bg-red-500"
       : prompt.tokens > 180
@@ -146,16 +146,16 @@ export default function NewRun() {
       <Card title="1 · Source recording">
         <FilePicker value={input} onPick={setInput} />
         {input && (
-          <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-            <p className="font-mono text-sm text-slate-200">{input}</p>
-            {probe.isLoading && <p className="mt-1 text-xs text-slate-400">Probing…</p>}
+          <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+            <p className="font-mono text-sm text-zinc-200">{input}</p>
+            {probe.isLoading && <p className="mt-1 text-xs text-zinc-400">Probing…</p>}
             {probe.error && <ErrorText>{(probe.error as Error).message}</ErrorText>}
             {probe.data && (
               <dl className="mt-2 grid grid-cols-4 gap-3 text-sm">
-                <div><dt className="text-xs text-slate-400">Duration</dt><dd>{formatDuration(probe.data.durationSeconds)}</dd></div>
-                <div><dt className="text-xs text-slate-400">Size</dt><dd>{formatBytes(probe.data.sizeBytes)}</dd></div>
-                <div><dt className="text-xs text-slate-400">Audio</dt><dd>{probe.data.audioCodec ?? "—"}</dd></div>
-                <div><dt className="text-xs text-slate-400">Est. transcription</dt><dd>~{formatDuration(probe.data.estimatedTranscribeSeconds)}</dd></div>
+                <div><dt className="text-xs text-zinc-400">Duration</dt><dd>{formatDuration(probe.data.durationSeconds)}</dd></div>
+                <div><dt className="text-xs text-zinc-400">Size</dt><dd>{formatBytes(probe.data.sizeBytes)}</dd></div>
+                <div><dt className="text-xs text-zinc-400">Audio</dt><dd>{probe.data.audioCodec ?? "—"}</dd></div>
+                <div><dt className="text-xs text-zinc-400">Est. transcription</dt><dd>~{formatDuration(probe.data.estimatedTranscribeSeconds)}</dd></div>
               </dl>
             )}
           </div>
@@ -182,14 +182,14 @@ export default function NewRun() {
             <ChipInput value={terms} onChange={setTerms} placeholder="Kafka, Atlas…" suggestions={knownTerms} />
           </Field>
 
-          <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">Whisper prompt</span>
-              <span className={prompt?.truncated ? "text-red-400" : "text-slate-400"}>
+              <span className={prompt?.truncated ? "text-red-400" : "text-zinc-400"}>
                 {prompt ? `${prompt.tokens} / ${prompt.budget} tokens` : "…"}
               </span>
             </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-800">
               <div className={`h-full ${meterColor}`} style={{ width: `${meterPercent}%` }} />
             </div>
             {prompt && prompt.dropped.length > 0 && (
@@ -198,7 +198,7 @@ export default function NewRun() {
               </p>
             )}
             {prompt && (
-              <p className="mt-2 font-mono text-xs leading-relaxed text-slate-400">{prompt.prompt}</p>
+              <p className="mt-2 font-mono text-xs leading-relaxed text-zinc-400">{prompt.prompt}</p>
             )}
           </div>
         </div>
@@ -206,7 +206,7 @@ export default function NewRun() {
 
       <Card title="3 · Processing">
         <div className="space-y-4">
-          <p className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-300">
+          <p className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 text-sm text-zinc-300">
             Audio is extracted from the recording into WSL. Your Windows file is read only and is
             never moved, changed, or deleted.
           </p>
@@ -224,7 +224,7 @@ export default function NewRun() {
               </select>
             </Field>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-zinc-400">
             {PRESETS.find((p) => p.id === preset)?.hint ??
               `Custom: ${model} at ${computeType}.`}
           </p>
@@ -233,16 +233,16 @@ export default function NewRun() {
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={keepAudio} onChange={(e) => setKeepAudio(e.target.checked)} />
               Keep extracted audio
-              <span className="text-xs text-slate-400">(~115 MB/hour, lets a re-run skip ffmpeg)</span>
+              <span className="text-xs text-zinc-400">(~115 MB/hour, lets a re-run skip ffmpeg)</span>
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={wordTimestamps} onChange={(e) => setWordTimestamps(e.target.checked)} />
               Word timestamps
-              <span className="text-xs text-slate-400">(known crash; retried without automatically)</span>
+              <span className="text-xs text-zinc-400">(known crash; retried without automatically)</span>
             </label>
           </div>
 
-          <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+          <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -267,7 +267,7 @@ export default function NewRun() {
                   value={speakerCount}
                   onChange={(e) => setSpeakerCount(Number(e.target.value))}
                 />
-                <span className="text-xs text-slate-400">0 = let pyannote decide</span>
+                <span className="text-xs text-zinc-400">0 = let pyannote decide</span>
               </label>
             )}
           </div>
@@ -296,17 +296,17 @@ export default function NewRun() {
             />
           )}
 
-          <div className="rounded-lg border border-slate-800">
+          <div className="rounded-lg border border-zinc-800">
             <button
               type="button"
-              className="flex w-full items-center justify-between px-4 py-2 text-sm text-slate-300"
+              className="flex w-full items-center justify-between px-4 py-2 text-sm text-zinc-300"
               onClick={() => setShowAdvanced((v) => !v)}
             >
               <span>Advanced</span>
-              <span className="text-xs text-slate-500">{showAdvanced ? "hide" : "show"}</span>
+              <span className="text-xs text-zinc-500">{showAdvanced ? "hide" : "show"}</span>
             </button>
             {showAdvanced && (
-              <div className="grid grid-cols-2 gap-4 border-t border-slate-800 p-4">
+              <div className="grid grid-cols-2 gap-4 border-t border-zinc-800 p-4">
                 <Field label="Model">
                   <select
                     className={inputClass}

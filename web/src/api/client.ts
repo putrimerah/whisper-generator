@@ -1,6 +1,6 @@
 import type {
-  Check, Config, DirListing, DiskReport, Favorite, Job, MeetingSummary,
-  ProbeResult, PromptResult, ResolvedPath, SearchResult, Segment,
+  Check, Config, DirListing, DiskReport, Favorite, GpuInfo, Job, MeetingDetail,
+  MeetingSummary, Peaks, ProbeResult, PromptResult, ResolvedPath, SearchResult, Segment,
 } from "./types.ts";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -42,6 +42,7 @@ export const api = {
 
   doctor: () => request<{ checks: Check[] }>("/api/doctor"),
   disk: () => request<DiskReport>("/api/disk"),
+  gpu: () => request<{ gpu: GpuInfo | null }>("/api/gpu"),
 
   jobs: () => request<{ jobs: Job[] }>("/api/jobs"),
   job: (id: string) => request<Job>(`/api/jobs/${id}`),
@@ -51,7 +52,9 @@ export const api = {
   retryJob: (id: string) => request<Job>(`/api/jobs/${id}/retry`, { method: "POST" }),
 
   meetings: (q = "") => request<{ meetings: MeetingSummary[] }>(`/api/meetings?q=${encodeURIComponent(q)}`),
-  meeting: (dir: string) => request<MeetingSummary>(`/api/meetings/${encodeURIComponent(dir)}`),
+  meeting: (dir: string) => request<MeetingDetail>(`/api/meetings/${encodeURIComponent(dir)}`),
+  peaks: (dir: string, buckets = 600) =>
+    request<Peaks>(`/api/meetings/${encodeURIComponent(dir)}/peaks?buckets=${buckets}`),
   transcript: (dir: string) =>
     request<{ segments: Segment[]; language: string | null; duration: number }>(
       `/api/meetings/${encodeURIComponent(dir)}/transcript`,
@@ -86,6 +89,13 @@ export function formatDuration(seconds: number): string {
   return h > 0
     ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
     : `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** "8.9k" style, for token counts. */
+export function formatCompact(n: number): string {
+  if (n >= 10_000) return `${Math.round(n / 1000)}k`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
 }
 
 export function formatBytes(n: number): string {

@@ -59,8 +59,16 @@ export interface DirEntry {
 export interface DirListing {
   path: string;
   windowsPath: string | null;
+  /** What the picker shows: the Windows form, or the path with home as `~`. */
+  displayPath: string;
   parent: string | null;
   entries: DirEntry[];
+}
+
+/** `/home/you/Videos` -> `~/Videos`: shorter, and keeps usernames out of screenshots. */
+export function tildify(p: string, home = homedir()): string {
+  if (p === home) return "~";
+  return p.startsWith(`${home}/`) ? `~${p.slice(home.length)}` : p;
 }
 
 export function toWindowsDisplayPath(p: string): string | null {
@@ -109,9 +117,11 @@ export function listDirectory(
   });
 
   const parent = abs === "/" ? null : dirname(abs);
+  const windowsPath = toWindowsDisplayPath(abs);
   return {
     path: abs,
-    windowsPath: toWindowsDisplayPath(abs),
+    windowsPath,
+    displayPath: windowsPath ?? tildify(abs),
     parent: parent && isPathAllowed(parent, opts.extraRoots ?? []) ? parent : null,
     entries,
   };

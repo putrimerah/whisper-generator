@@ -5,7 +5,7 @@ import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 import { JobStore } from "./jobStore.ts";
 import { makeJobId, TERMINAL_STATES } from "./jobTypes.ts";
-import { isPathAllowed, planOutputTarget, toWindowsDisplayPath, isMediaPath, nextFreeDir, defaultBrowsePath } from "./fsService.ts";
+import { isPathAllowed, planOutputTarget, toWindowsDisplayPath, isMediaPath, nextFreeDir, defaultBrowsePath, tildify } from "./fsService.ts";
 import { readEnvSettings } from "../env.ts";
 import { userMediaDir } from "../platform.ts";
 import { DEFAULT_CONFIG, defaultOutputRoot } from "../config.ts";
@@ -15,6 +15,7 @@ import { parseSrt, srtTimeToSeconds } from "./routes/meetings.ts";
 import { Router } from "./router.ts";
 import { buildAiMarkdown, groupSegments, estimateTokens as estimateAiTokens } from "./aiExport.ts";
 import { createZip, crc32 } from "./zip.ts";
+import { bucketPeaks, RmsAccumulator } from "./peaks.ts";
 import type { Job } from "./jobTypes.ts";
 import type { RunOptions } from "../types.ts";
 
@@ -302,4 +303,35 @@ test("default config resolves paths at runtime, never from literals", () => {
   // Privacy of committed files is checked separately by `make privacy`.
   assert.ok(DEFAULT_CONFIG.outputRoot.startsWith("/"));
   assert.equal(DEFAULT_CONFIG.browseRoot, "");
+});
+
+test("waveform rms survives chunks split mid-sample", () => {
+  // 8 samples, 4 per window: silence then full-scale square wave.
+  const pcm = Buffer.alloc(16);
+  for (let i = 4; i < 8; i++) pcm.writeInt16LE(i % 2 === 0 ? 32767 : -32768, i * 2);
+  const acc = new RmsAccumulator(4, 1);
+  acc.push(pcm.subarray(0, 7));
+  acc.push(pcm.subarray(7));
+  const windows = acc.finish();
+  assert.equal(windows.length, 2);
+  assert.equal(windows[0], 0);
+  assert.ok((windows[1] ?? 0) > 0.99);
+});
+
+test("waveform buckets are normalised and sized as asked", () => {
+  const windows = Array.from({ length: 1000 }, (_, i) => (i === 500 ? 50 : (i % 10) / 10));
+  const peaks = bucketPeaks(windows, 100);
+  assert.equal(peaks.length, 100);
+  assert.ok(peaks.every((p) => p >= 0 && p <= 1));
+  // One outlier must not squash the rest towards zero.
+  assert.ok((peaks[10] ?? 0) > 0.5);
+  assert.deepEqual(bucketPeaks([], 10), []);
+  assert.equal(bucketPeaks([0.2, 0.4], 6).length, 6);
+});
+
+test("picker paths show home as ~", () => {
+  assert.equal(tildify("/home/you/Videos", "/home/you"), "~/Videos");
+  assert.equal(tildify("/home/you", "/home/you"), "~");
+  assert.equal(tildify("/home/younger/x", "/home/you"), "/home/younger/x");
+  assert.equal(tildify("/mnt/c/Users", "/home/you"), "/mnt/c/Users");
 });

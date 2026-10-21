@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildPrompt, PROMPT_TOKEN_BUDGET } from "../../prompt.ts";
-import { runDoctor } from "../../doctor.ts";
+import { gpuInfo, runDoctor } from "../../doctor.ts";
 import { CONFIG_FILENAME, DEFAULT_CONFIG } from "../../config.ts";
 import { toWslPath } from "../../platform.ts";
 import type { Config, ExecutionPlan } from "../../types.ts";
@@ -85,6 +85,13 @@ export function registerMiscRoutes(router: Router, state: AppState): void {
   });
 
   router.get("/api/doctor", () => ({ checks: runDoctor(state.config, state.plan) }));
+
+  // The GPU does not change while the server runs, so ask the driver once.
+  let gpu: ReturnType<typeof gpuInfo> | undefined;
+  router.get("/api/gpu", () => {
+    if (gpu === undefined) gpu = gpuInfo(state.plan);
+    return { gpu };
+  });
 
   router.get("/api/disk", () => diskReport(state.config.outputRoot));
 }

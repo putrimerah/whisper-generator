@@ -59,8 +59,10 @@ Now: pick the file, type who was there, press Start.
   tokens of `initial_prompt`; the builder trims from the front so attendee
   names and glossary terms always survive, and tells you what it dropped.
 - **Live progress.** Percentage, elapsed, ETA, log tail, cancel, retry.
-- **Library.** Every past meeting, transcript viewer with click-to-seek audio,
-  in-transcript search, and full-text search across all meetings.
+- **Library.** Every past meeting, and a transcript viewer with a waveform
+  player: click a line to hear it, the playing line follows along, and search
+  results open at the moment they matched. In-transcript search and full-text
+  search across all meetings.
 - **AI export.** A chatbot-ready Markdown transcript at roughly the token cost
   of plain text but with timestamps intact — about 7× cheaper than the raw
   JSON. Export several meetings as a single prompt.
@@ -319,6 +321,7 @@ Common options:
 | `make` | build and open the web app |
 | `make install` | full setup including ffmpeg and Whisper |
 | `make dev` | live-reloading UI on port 5173 |
+| `make demo` | the web app on port 7799 with fictional meetings, for screenshots |
 | `make doctor` | environment check |
 | `make test` | test suite |
 | `make check` | typecheck + tests + build + privacy scan |
@@ -397,14 +400,19 @@ is overridable in `.env`.
 
 ```bash
 make dev        # Vite hot reload on 5173, API on 7788
+make demo       # fictional meetings on 7799; safe to screenshot
 make check      # typecheck, tests, build, privacy scan
 ```
+
+`make demo` writes made-up meetings and synthetic audio to `~/.wg/demo` and
+keeps its job history there too, so nothing of yours shows up. Delete the
+folder to regenerate it.
 
 ```
 src/              CLI and shared core, zero runtime dependencies
 src/server/       HTTP API, job runner, exports
 web/src/          React UI (Vite, Tailwind, React Query, wouter)
-scripts/          user-level installer
+scripts/          user-level installer, demo data generator
 docs/PROJECT.md   full project context: pipeline, code map, API, decisions
 ```
 

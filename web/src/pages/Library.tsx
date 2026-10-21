@@ -49,17 +49,17 @@ export default function Library() {
       )}
 
       {meetings.data?.meetings.length === 0 && (
-        <Card><p className="text-sm text-slate-400">No transcripts yet.</p></Card>
+        <Card><p className="text-sm text-zinc-400">No transcripts yet.</p></Card>
       )}
       <div className="grid grid-cols-2 gap-4">
         {meetings.data?.meetings.map((m) => (
           <div
             key={m.dir}
-            className={`rounded-xl border bg-slate-900/50 p-4 ${
-              selected.includes(m.dir) ? "border-indigo-500" : "border-slate-800"
+            className={`rounded-xl border bg-zinc-900/50 p-4 ${
+              selected.includes(m.dir) ? "border-indigo-500" : "border-zinc-800"
             }`}
           >
-            <label className="mb-2 flex items-center gap-2 text-xs text-slate-400">
+            <label className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
               <input
                 type="checkbox"
                 checked={selected.includes(m.dir)}
@@ -70,16 +70,16 @@ export default function Library() {
             <Link href={`/library/${encodeURIComponent(m.dir)}`}>
             <a className="block hover:text-indigo-300">
               <p className="truncate font-medium">{m.dir}</p>
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-zinc-400">
                 {new Date(m.record.createdAt).toLocaleString()} · {m.record.model}
               </p>
               {m.record.attendees.length > 0 && (
-                <p className="mt-2 truncate text-sm text-slate-300">{m.record.attendees.join(", ")}</p>
+                <p className="mt-2 truncate text-sm text-zinc-300">{m.record.attendees.join(", ")}</p>
               )}
               {m.record.context && (
-                <p className="mt-1 line-clamp-2 text-xs text-slate-400">{m.record.context}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{m.record.context}</p>
               )}
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-zinc-500">
                 {m.outputs.length} files · {formatBytes(m.sizeBytes)}
               </p>
             </a>

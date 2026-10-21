@@ -7,6 +7,7 @@ import { badRequest, notFound } from "../errors.ts";
 import { assertAllowed } from "../fsService.ts";
 import { buildAiMarkdown, buildCombinedMarkdown, estimateTokens } from "../aiExport.ts";
 import { createZip } from "../zip.ts";
+import { DEFAULT_BUCKETS, peaksFor } from "../peaks.ts";
 import { assertNoUnknownKeys, type Ctx, type Router } from "../router.ts";
 import type { AppState } from "./misc.ts";
 
@@ -51,6 +52,14 @@ function readRecord(dir: string): MeetingRecord | null {
   } catch {
     return null;
   }
+}
+
+/** Kept audio if it is still there, else the source recording, else null. */
+function mediaFor(record: MeetingRecord | null): string | null {
+  for (const candidate of [record?.audio, record?.input]) {
+    if (candidate && existsSync(toWslPath(candidate))) return candidate;
+  }
+  return null;
 }
 
 function safeMeetingDir(outputRoot: string, name: string): string {
@@ -189,7 +198,30 @@ export function registerMeetingRoutes(router: Router, state: AppState): void {
     const dir = safeMeetingDir(state.config.outputRoot, ctx.params.dir as string);
     const record = readRecord(dir);
     if (!record) throw notFound("meeting.json missing or invalid");
-    return { dir: basename(dir), path: dir, record, outputs: readdirSync(dir) };
+    const outputs = readdirSync(dir);
+    // Sizes let the viewer compare what each format costs in a chatbot.
+    const files = outputs
+      .map((name) => {
+        try {
+          const stat = statSync(join(dir, name));
+          return stat.isFile() ? { name, bytes: stat.size } : null;
+        } catch {
+          return null;
+        }
+      })
+      .filter((f): f is { name: string; bytes: number } => f !== null);
+    return { dir: basename(dir), path: dir, record, outputs, files, media: mediaFor(record) };
+  });
+
+  /** Loudness envelope of the meeting's audio, for the player waveform. */
+  router.get("/api/meetings/:dir/peaks", async (ctx: Ctx) => {
+    const dir = safeMeetingDir(state.config.outputRoot, ctx.params.dir as string);
+    const source = mediaFor(readRecord(dir));
+    if (!source) throw notFound("no audio for this meeting: the recording moved or was not kept");
+    const file = assertAllowed(source, [state.config.outputRoot, state.projectDir]);
+    const requested = Number(ctx.url.searchParams.get("buckets") ?? DEFAULT_BUCKETS);
+    const buckets = Number.isInteger(requested) && requested > 0 && requested <= 4000 ? requested : DEFAULT_BUCKETS;
+    return peaksFor(file, state.config.ffmpegPath, buckets);
   });
 
   router.get("/api/meetings/:dir/transcript", (ctx: Ctx) => {

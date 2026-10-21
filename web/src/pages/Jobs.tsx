@@ -7,14 +7,14 @@ import { Button, Card } from "../components/Ui.tsx";
 import type { Job, JobState } from "../api/types.ts";
 
 const BADGE: Record<JobState, string> = {
-  queued: "bg-slate-700 text-slate-200",
+  queued: "bg-zinc-700 text-zinc-200",
   extracting: "bg-blue-600/30 text-blue-200",
   transcribing: "bg-indigo-600/30 text-indigo-200",
   verifying: "bg-amber-600/30 text-amber-200",
   cleaning: "bg-amber-600/20 text-amber-200",
   done: "bg-emerald-600/30 text-emerald-200",
   failed: "bg-red-600/30 text-red-200",
-  cancelled: "bg-slate-600/30 text-slate-300",
+  cancelled: "bg-zinc-600/30 text-zinc-300",
 };
 
 const TERMINAL: JobState[] = ["done", "failed", "cancelled"];
@@ -35,7 +35,7 @@ export default function Jobs() {
   });
 
   if (jobs.data?.jobs.length === 0) {
-    return <Card><p className="text-sm text-slate-400">No jobs yet. Start one from “New run”.</p></Card>;
+    return <Card><p className="text-sm text-zinc-400">No jobs yet. Start one from “New run”.</p></Card>;
   }
 
   return (
@@ -70,14 +70,14 @@ function JobCard({ job, onCancel, onRetry }: { job: Job; onCancel: () => void; o
             <span className="truncate font-medium">{name}</span>
           </div>
 
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-800">
             <div
               className={`h-full transition-all ${job.state === "failed" ? "bg-red-500" : "bg-indigo-500"}`}
               style={{ width: `${percent}%` }}
             />
           </div>
 
-          <div className="mt-2 flex gap-4 text-xs text-slate-400">
+          <div className="mt-2 flex gap-4 text-xs text-zinc-400">
             <span>{percent}%</span>
             {job.progress && (
               <span>
@@ -89,7 +89,7 @@ function JobCard({ job, onCancel, onRetry }: { job: Job; onCancel: () => void; o
           </div>
 
           {job.state === "done" && (
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-zinc-400">
               {job.outputs.join(", ")} ·{" "}
               {job.audioPath ? `Audio kept: ${job.audioPath}` : "Temporary audio deleted"}
             </p>
@@ -104,7 +104,7 @@ function JobCard({ job, onCancel, onRetry }: { job: Job; onCancel: () => void; o
           )}
           {job.state === "done" && (
             <Link href={`/library/${encodeURIComponent(dir)}`}>
-              <a className="rounded-lg border border-slate-700 px-3.5 py-2 text-sm hover:bg-slate-800">Open</a>
+              <a className="rounded-lg border border-zinc-700 px-3.5 py-2 text-sm hover:bg-zinc-800">Open</a>
             </Link>
           )}
           <Button variant="ghost" onClick={() => setShowLog((v) => !v)}>
@@ -114,7 +114,7 @@ function JobCard({ job, onCancel, onRetry }: { job: Job; onCancel: () => void; o
       </div>
 
       {showLog && (
-        <pre className="mt-3 max-h-60 overflow-y-auto rounded-lg bg-slate-950 p-3 font-mono text-xs text-slate-400">
+        <pre className="mt-3 max-h-60 overflow-y-auto rounded-lg bg-zinc-950 p-3 font-mono text-xs text-zinc-400">
           {job.logTail.join("\n") || "no output yet"}
         </pre>
       )}

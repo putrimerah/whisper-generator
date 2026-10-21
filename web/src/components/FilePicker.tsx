@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, formatBytes } from "../api/client.ts";
 import { Button, ErrorText, inputClass } from "./Ui.tsx";
+import { Icon } from "./Icon.tsx";
 
 /**
  * Server-side browser. The browser's own file input hides real paths and would
@@ -75,7 +76,7 @@ export default function FilePicker({
             type="button"
             onClick={() => setTab(t)}
             className={`rounded-md px-3 py-1 ${
-              tab === t ? "bg-slate-800 text-white" : "text-slate-400 hover:text-slate-200"
+              tab === t ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             {t === "browse" ? "Browse" : "Paste path"}
@@ -92,7 +93,7 @@ export default function FilePicker({
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void submitPaste()}
           />
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-zinc-400">
             In Explorer: Shift+Right-click a file → “Copy as path”, then paste here.
           </p>
           <Button onClick={() => void submitPaste()}>Use this path</Button>
@@ -107,7 +108,7 @@ export default function FilePicker({
                 type="button"
                 onClick={() => setCwd(f.path)}
                 className={`block w-full truncate rounded-md px-2.5 py-1.5 text-left text-sm ${
-                  cwd === f.path ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-800/60"
+                  cwd === f.path ? "bg-zinc-800 text-white" : "text-zinc-300 hover:bg-zinc-800/60"
                 }`}
                 title={f.path}
               >
@@ -116,27 +117,27 @@ export default function FilePicker({
             ))}
           </aside>
 
-          <div className="rounded-lg border border-slate-800">
-            <div className="flex items-center gap-2 border-b border-slate-800 px-3 py-2 text-xs text-slate-400">
+          <div className="rounded-lg border border-zinc-800">
+            <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2 text-xs text-zinc-400">
               {listing.data?.parent && (
                 <button
                   type="button"
-                  className="rounded border border-slate-700 px-2 py-0.5 hover:bg-slate-800"
+                  className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-800"
                   onClick={() => setCwd(listing.data?.parent ?? null)}
                 >
-                  ↑ up
+                  <span className="flex items-center gap-1"><Icon name="arrowUp" className="h-3 w-3" />up</span>
                 </button>
               )}
               <span className="truncate font-mono">
-                {listing.data?.windowsPath ?? listing.data?.path ?? "Pick a folder on the left"}
+                {listing.data?.displayPath ?? "Pick a folder on the left"}
               </span>
             </div>
 
             <div className="max-h-80 overflow-y-auto">
-              {listing.isLoading && <p className="p-3 text-sm text-slate-400">Loading…</p>}
+              {listing.isLoading && <p className="p-3 text-sm text-zinc-400">Loading…</p>}
               {listing.error && <p className="p-3 text-sm text-red-400">{(listing.error as Error).message}</p>}
               {listing.data?.entries.length === 0 && (
-                <p className="p-3 text-sm text-slate-500">Empty folder.</p>
+                <p className="p-3 text-sm text-zinc-500">Empty folder.</p>
               )}
               {listing.data?.entries.map((entry) => {
                 const selectable = entry.type === "dir" || (dirsOnly ? false : entry.media === true);
@@ -150,14 +151,20 @@ export default function FilePicker({
                       value === entry.path ? "bg-indigo-600/20" : ""
                     } ${
                       selectable
-                        ? "hover:bg-slate-800/60"
-                        : "cursor-not-allowed text-slate-600"
+                        ? "hover:bg-zinc-800/60"
+                        : "cursor-not-allowed text-zinc-600"
                     }`}
                   >
-                    <span>{entry.type === "dir" ? "📁" : entry.media ? "🎬" : "📄"}</span>
+                    {entry.type === "dir" ? (
+                      <Icon name="folder" className="h-4 w-4 shrink-0 text-zinc-500" />
+                    ) : entry.media ? (
+                      <Icon name="film" className="h-4 w-4 shrink-0 text-indigo-300" />
+                    ) : (
+                      <Icon name="file" className="h-4 w-4 shrink-0 text-zinc-600" />
+                    )}
                     <span className="flex-1 truncate">{entry.name}</span>
                     {entry.size !== undefined && (
-                      <span className="text-xs text-slate-500">{formatBytes(entry.size)}</span>
+                      <span className="text-xs text-zinc-500">{formatBytes(entry.size)}</span>
                     )}
                   </button>
                 );
@@ -165,7 +172,7 @@ export default function FilePicker({
             </div>
 
             {dirsOnly && cwd && (
-              <div className="border-t border-slate-800 p-2">
+              <div className="border-t border-zinc-800 p-2">
                 <Button variant="ghost" onClick={() => onPick(cwd)}>
                   Use this folder
                 </Button>

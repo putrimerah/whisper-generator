@@ -17,6 +17,9 @@ whisper-generator/
 web/node_modules/
 web/dist/
 
+# Design mockups: local review only, never committed
+design/mockups/
+
 # Makefile dev helper
 .dev.pid
 
