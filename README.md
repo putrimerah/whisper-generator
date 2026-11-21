@@ -12,6 +12,7 @@ make
 ```
 
 That installs what is missing, builds what changed, and opens the web app.
+On Windows, follow the [Windows installation steps](#windows) first.
 
 ---
 
@@ -105,7 +106,30 @@ not need the CUDA Toolkit: the installer fetches required CUDA runtime files.
 
 ### Windows
 
-Use one PowerShell command from an extracted or cloned repository folder:
+First, download the repository to your Windows computer using either option:
+
+- **With Git installed:** Open PowerShell in the folder where you want the
+  project, then clone the repository and enter its folder:
+
+  ```powershell
+  git clone https://github.com/putrimerah/whisper-generator.git
+  cd whisper-generator
+  ```
+
+- **Without Git:** [Download the repository ZIP](https://github.com/putrimerah/whisper-generator/archive/refs/heads/main.zip)
+  and extract it. Open the extracted folder in File Explorer, type
+  `powershell` in the address bar, and press Enter. Bootstrap installs Git
+  for later updates.
+
+In PowerShell, check that you are in the repository folder. This command must
+return `True`:
+
+```powershell
+Test-Path .\scripts\bootstrap-windows.ps1
+```
+
+If it returns `False`, navigate to the extracted or cloned folder containing
+`README.md` and `scripts`, then check again. Run the installer from that folder:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bootstrap-windows.ps1
@@ -119,10 +143,7 @@ Requirements for this command:
 - 64-bit Windows 10 or 11
 - Windows App Installer, which provides `winget`
 - Internet connection and roughly 6 GB free disk space
-- Run it from an extracted or cloned repository folder
-
-If Git is not installed, download repository source as a ZIP in your browser,
-extract it, and run command above. Bootstrap installs Git for later updates.
+- Run it from the extracted or cloned repository folder
 
 For GPU transcription, install a current NVIDIA display driver before setup.
 CPU-only mode also works. CUDA Toolkit, Python, WSL, and administrator rights
