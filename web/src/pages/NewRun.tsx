@@ -39,6 +39,7 @@ const PRESETS = [
 const LANGUAGES = [
   { value: "en", label: "English (forced)" },
   { value: "ms", label: "Malay (forced)" },
+  { value: "id", label: "Bahasa Indonesia (forced)" },
   { value: "auto", label: "Auto-detect" },
 ];
 

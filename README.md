@@ -323,7 +323,7 @@ Common options:
 
 ```
 --attendees "Alice,Bob"     --terms "Kafka,Atlas"      --context "..."
---model large-v3            --language en|auto         --device cuda|cpu
+--model large-v3            --language en|ms|id|auto   --device cuda|cpu
 --out <dir>                 --formats srt,vtt,txt,json --extract
 --word-timestamps           --diarize --speakers 4     --dry-run
 ```

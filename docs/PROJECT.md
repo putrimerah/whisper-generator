@@ -225,7 +225,7 @@ Base `http://127.0.0.1:7788`. Errors: `{ "error": { code, message, detail } }`.
 |---|---|
 | CTranslate2, not `openai-whisper` | 4x faster, 2.5 GB vs 6.5 GB, and `large-v3` fits 6 GB at `int8_float16`, where openai-whisper could only manage `medium` |
 | `large-v3` default | user chose quality over speed; also best at English/Malay code-switching |
-| `--language en` forced | mostly-English meetings; auto-detect flips language mid-recording |
+| `--language en`, `ms` or `id` forced | choose meeting language; auto-detect can flip language mid-recording |
 | No `.en` models | they mangle Malay words |
 | Read in place, extract audio only | copying a 2 GB video into WSL grows `ext4.vhdx` on the same C: drive it was meant to spare; native Windows also avoids an unnecessary copy |
 | `keepAudio` default off | ~115 MB/hour; the transcript is the artifact worth keeping |
