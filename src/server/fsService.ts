@@ -245,8 +245,8 @@ export interface ResolvedPath {
   windowsPath: string | null;
 }
 
-export function resolveUserPath(input: string): ResolvedPath {
-  const abs = assertAllowed(input);
+export function resolveUserPath(input: string, extraRoots: string[] = []): ResolvedPath {
+  const abs = assertAllowed(input, extraRoots);
   const exists = existsSync(abs);
   const stat = exists ? statSync(abs) : null;
   return {

@@ -218,7 +218,7 @@ export function registerMeetingRoutes(router: Router, state: AppState): void {
     const dir = safeMeetingDir(state.config.outputRoot, ctx.params.dir as string);
     const source = mediaFor(readRecord(dir));
     if (!source) throw notFound("no audio for this meeting: the recording moved or was not kept");
-    const file = assertAllowed(source, [state.config.outputRoot, state.projectDir]);
+    const file = assertAllowed(source, [state.config.outputRoot, state.config.browseRoot, state.projectDir]);
     const requested = Number(ctx.url.searchParams.get("buckets") ?? DEFAULT_BUCKETS);
     const buckets = Number.isInteger(requested) && requested > 0 && requested <= 4000 ? requested : DEFAULT_BUCKETS;
     return peaksFor(file, state.config.ffmpegPath, buckets);
@@ -273,7 +273,7 @@ export function registerMeetingRoutes(router: Router, state: AppState): void {
   router.get("/api/media", (ctx: Ctx) => {
     const raw = ctx.url.searchParams.get("path");
     if (!raw) throw badRequest("`path` query parameter is required");
-    const file = assertAllowed(raw, [state.config.outputRoot, state.projectDir]);
+    const file = assertAllowed(raw, [state.config.outputRoot, state.config.browseRoot, state.projectDir]);
     if (!existsSync(file)) throw notFound(`media not found: ${file}`);
 
     const size = statSync(file).size;

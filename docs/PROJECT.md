@@ -167,6 +167,11 @@ player), Icon (inline SVG set), Ui (Card, Field, Button, Menu, Chip).
 `api/client.ts` + `api/types.ts`: typed wrappers mirroring the server.
 `public/fonts/`: Inter and JetBrains Mono, self-hosted, SIL OFL.
 
+The input file picker remembers its last folder until the configured default
+recordings folder changes, then opens the new default. The configured recordings
+folder is allowed for browsing, transcription, and playback. The output folder
+picker continues to remember its last folder.
+
 Look: dark zinc surfaces (`#09090b`), one indigo-to-violet accent for the
 primary action, the playhead and the AI card. Shared classes live in
 `Ui.tsx` (`surfaceClass`, `inputClass`, `buttonClass`).

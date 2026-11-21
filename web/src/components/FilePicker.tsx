@@ -19,17 +19,27 @@ export default function FilePicker({
 }) {
   const [tab, setTab] = useState<"browse" | "paste">("browse");
   const storageKey = dirsOnly ? "wg.lastOutDir" : "wg.lastDir";
-  const [cwd, setCwd] = useState<string | null>(() => localStorage.getItem(storageKey));
+  const [cwd, setCwd] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [pasteError, setPasteError] = useState<string | null>(null);
 
   const favorites = useQuery({ queryKey: ["favorites"], queryFn: api.favorites });
 
-  // Open where the user left off; first run falls back to the recordings
-  // folder reported by the server.
+  // Keep the last folder until the server's default recordings folder changes.
   useEffect(() => {
-    if (cwd === null && favorites.data?.defaultPath) setCwd(favorites.data.defaultPath);
-  }, [cwd, favorites.data]);
+    const defaultPath = favorites.data?.defaultPath;
+    if (!defaultPath) return;
+
+    const defaultKey = `${storageKey}.defaultPath`;
+    const previousDefault = localStorage.getItem(defaultKey);
+    const lastDir = localStorage.getItem(storageKey);
+    if (dirsOnly || previousDefault === defaultPath) {
+      setCwd(lastDir ?? defaultPath);
+    } else {
+      setCwd(defaultPath);
+    }
+    localStorage.setItem(defaultKey, defaultPath);
+  }, [dirsOnly, favorites.data?.defaultPath, storageKey]);
 
   useEffect(() => {
     if (cwd) localStorage.setItem(storageKey, cwd);
