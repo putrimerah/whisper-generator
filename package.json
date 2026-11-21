@@ -17,7 +17,10 @@
     "build:server": "tsc -p tsconfig.json",
     "build:web": "npm --prefix web run build",
     "dev:web": "npm --prefix web run dev",
-    "ui": "node dist/cli.js ui --open"
+    "ui": "node dist/cli.js ui --open",
+    "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/install-windows.ps1",
+    "start": "node dist/cli.js ui --open",
+    "doctor": "node dist/cli.js doctor"
   },
   "files": [
     "dist"

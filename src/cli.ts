@@ -186,11 +186,14 @@ async function main(argv: string[]): Promise<number> {
         // elsewhere use the platform opener.
         const host = detectHost();
         const [bin, args] =
-          host === "wsl"
-            ? ["powershell.exe", ["-NoProfile", "-Command", "Start-Process", server.url]]
-            : host === "macos"
-              ? ["open", [server.url]]
-              : ["xdg-open", [server.url]];
+          host === "windows"
+            // The empty "" is the window title start expects before the URL.
+            ? ["cmd", ["/c", "start", "", server.url]]
+            : host === "wsl"
+              ? ["powershell.exe", ["-NoProfile", "-Command", "Start-Process", server.url]]
+              : host === "macos"
+                ? ["open", [server.url]]
+                : ["xdg-open", [server.url]];
         const child = spawn(bin as string, args as string[], {
           detached: true,
           stdio: "ignore",

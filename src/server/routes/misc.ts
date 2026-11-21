@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { buildPrompt, PROMPT_TOKEN_BUDGET } from "../../prompt.ts";
 import { gpuInfo, runDoctor } from "../../doctor.ts";
 import { CONFIG_FILENAME, DEFAULT_CONFIG } from "../../config.ts";
-import { toWslPath } from "../../platform.ts";
+import { normalizeUserPath } from "../../platform.ts";
 import type { Config, ExecutionPlan } from "../../types.ts";
 import { diskReport } from "../disk.ts";
 import { badRequest } from "../errors.ts";
@@ -54,7 +54,9 @@ export function registerMiscRoutes(router: Router, state: AppState): void {
   router.get("/api/probe", async (ctx: Ctx) => {
     const path = ctx.url.searchParams.get("path");
     if (!path) throw badRequest("`path` query parameter is required");
-    return probeMedia(toWslPath(path), state.config.ffmpegPath.replace(/ffmpeg$/, "ffprobe"));
+    // The extension must survive the swap: ffmpeg.exe -> ffprobe.exe.
+    const ffprobePath = state.config.ffmpegPath.replace(/ffmpeg(\.exe)?$/i, "ffprobe$1");
+    return probeMedia(normalizeUserPath(path), ffprobePath);
   });
 
   router.post("/api/prompt", (ctx: Ctx) => {
@@ -77,7 +79,7 @@ export function registerMiscRoutes(router: Router, state: AppState): void {
     const body = (ctx.body ?? {}) as Record<string, unknown>;
     assertNoUnknownKeys(body, Object.keys(DEFAULT_CONFIG));
     const merged: Config = { ...state.config, ...(body as Partial<Config>) };
-    if (typeof merged.outputRoot === "string") merged.outputRoot = toWslPath(merged.outputRoot);
+    if (typeof merged.outputRoot === "string") merged.outputRoot = normalizeUserPath(merged.outputRoot);
     const target = join(state.projectDir, CONFIG_FILENAME);
     writeFileSync(target, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
     Object.assign(state.config, merged);

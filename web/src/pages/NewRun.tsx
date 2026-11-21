@@ -207,8 +207,8 @@ export default function NewRun() {
       <Card title="3 · Processing">
         <div className="space-y-4">
           <p className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 text-sm text-zinc-300">
-            Audio is extracted from the recording into WSL. Your Windows file is read only and is
-            never moved, changed, or deleted.
+            Audio is extracted into a temporary working folder. Your recording is read only and is
+            never changed.
           </p>
 
           <div className="grid grid-cols-2 gap-4">

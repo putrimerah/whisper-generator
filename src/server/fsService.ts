@@ -1,14 +1,19 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { basename, dirname, extname, join, posix, resolve, win32 } from "node:path";
 import {
+  detectHost,
+  hasWindowsFilesystem,
+  isAbsoluteUserPath,
   isOnWindowsMount,
+  normalizeUserPath,
   pickWindowsUser,
   sanitizeForWindows,
   toWslPath,
   userMediaDir,
   windowsSpecialFolder,
 } from "../platform.ts";
+import type { Host } from "../types.ts";
 import { forbiddenPath, notFound } from "./errors.ts";
 
 export const VIDEO_EXTENSIONS = new Set([
@@ -24,24 +29,51 @@ export function isMediaPath(p: string): boolean {
 }
 
 /**
- * Only Windows mounts, the user's home and explicit output roots are
- * reachable. Everything else, including /etc and /proc, is refused.
+ * Only the user's home, the configured roots, and (off Windows) the Windows
+ * mounts are reachable. Everything else, including /etc, /proc and
+ * C:\\Windows, is refused.
+ *
+ * Uses path.win32 or path.posix explicitly rather than the ambient
+ * node:path, so Windows rules can be asserted from a Linux test runner.
  */
-export function isPathAllowed(p: string, extraRoots: string[] = []): boolean {
-  if (!p.startsWith("/")) return false;
-  const abs = resolve(p);
+export function isPathAllowed(
+  p: string,
+  extraRoots: string[] = [],
+  host: Host = detectHost(),
+): boolean {
+  if (!isAbsoluteUserPath(p, host)) return false;
+  if (p.includes("\0")) return false;
+  const pm = host === "windows" ? win32 : posix;
+  const abs = pm.resolve(normalizeUserPath(p, host));
   if (abs.includes("\0")) return false;
+  // An alternate data stream (C:\\x\\a.txt:payload) is a Windows-only way to
+  // hide content behind an allowed-looking name.
+  if (host === "windows" && abs.slice(2).includes(":")) return false;
+
   const roots = [
-    "/mnt",
+    ...(host === "windows" ? [] : ["/mnt"]),
     homedir(),
-    ...extraRoots.filter((r) => r !== "").map((r) => resolve(toWslPath(r))),
+    ...extraRoots
+      .filter((r) => r !== "")
+      .map((r) => pm.resolve(normalizeUserPath(r, host))),
   ];
-  return roots.some((root) => abs === root || abs.startsWith(`${root}/`));
+
+  // NTFS is case-insensitive; ext4 is not. Compare accordingly.
+  const fold = (s: string) => (host === "windows" ? s.toLowerCase() : s);
+  const target = fold(abs);
+  return roots.some((root) => {
+    const r = fold(root);
+    if (target === r) return true;
+    // A drive root already ends in a separator: C:\\ must not become C:\\\\.
+    return r.endsWith(pm.sep) ? target.startsWith(r) : target.startsWith(`${r}${pm.sep}`);
+  });
 }
 
 export function assertAllowed(p: string, extraRoots: string[] = []): string {
-  const abs = resolve(toWslPath(p));
-  if (!isPathAllowed(abs, extraRoots)) {
+  const host = detectHost();
+  const pm = host === "windows" ? win32 : posix;
+  const abs = pm.resolve(normalizeUserPath(p, host));
+  if (!isPathAllowed(abs, extraRoots, host)) {
     throw forbiddenPath(`path outside the allowed roots: ${abs}`);
   }
   return abs;
@@ -71,7 +103,8 @@ export function tildify(p: string, home = homedir()): string {
   return p.startsWith(`${home}/`) ? `~${p.slice(home.length)}` : p;
 }
 
-export function toWindowsDisplayPath(p: string): string | null {
+export function toWindowsDisplayPath(p: string, host: Host = detectHost()): string | null {
+  if (host === "windows") return p;
   const m = /^\/mnt\/([a-z])(\/.*)?$/i.exec(p);
   if (!m) return null;
   const drive = (m[1] as string).toUpperCase();
@@ -116,7 +149,9 @@ export function listDirectory(
     return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
   });
 
-  const parent = abs === "/" ? null : dirname(abs);
+  // dirname() of a filesystem root returns the root itself, on both "/" and "C:\\".
+  const parentDir = dirname(abs);
+  const parent = parentDir === abs ? null : parentDir;
   const windowsPath = toWindowsDisplayPath(abs);
   return {
     path: abs,
@@ -149,7 +184,8 @@ export function defaultBrowsePath(browseRoot = ""): string | null {
 }
 
 /** Windows profile discovered at runtime; never hardcode a username. */
-export function windowsUserDir(): string | null {
+export function windowsUserDir(host: Host = detectHost()): string | null {
+  if (host === "windows") return homedir();
   const root = "/mnt/c/Users";
   if (!existsSync(root)) return null;
   try {
@@ -178,9 +214,9 @@ export function favorites(outputRoot: string, browseRoot = ""): Favorite[] {
       { label: "Desktop", path: windowsSpecialFolder(winHome, "Desktop") },
     );
   }
-  if (winHome) {
+  if (detectHost() === "wsl") {
     list.push({ label: "WSL home", path: homedir() });
-  } else {
+  } else if (!winHome) {
     // No Windows mounts: offer the standard local folders instead.
     const media = userMediaDir(homedir());
     if (media) list.push({ label: basename(media), path: media });
@@ -189,6 +225,7 @@ export function favorites(outputRoot: string, browseRoot = ""): Favorite[] {
     }
     list.push({ label: "Home", path: homedir() });
   }
+  if (detectHost() === "windows") list.push({ label: "Home", path: homedir() });
   const out = resolve(toWslPath(outputRoot));
   list.push({ label: "Transcripts", path: out });
   const seen = new Set<string>();
@@ -238,17 +275,22 @@ export interface OutputTarget {
  * Compute the output directory for an input file, applying NTFS rules when the
  * destination lives on a Windows drive. Does not create anything.
  */
-export function planOutputTarget(inputPath: string, outputRoot: string): OutputTarget {
-  const root = resolve(toWslPath(outputRoot));
-  const originalStem = basename(inputPath, extname(inputPath));
-  const onWindows = isOnWindowsMount(root);
+export function planOutputTarget(
+  inputPath: string,
+  outputRoot: string,
+  host: Host = detectHost(),
+): OutputTarget {
+  const pm = host === "windows" ? win32 : posix;
+  const root = pm.resolve(normalizeUserPath(outputRoot, host));
+  const originalStem = pm.basename(inputPath, pm.extname(inputPath));
+  const onWindows = isOnWindowsMount(root, host);
   let stem = onWindows ? sanitizeForWindows(originalStem) : originalStem;
 
-  let dir = join(root, stem);
+  let dir = pm.join(root, stem);
   if (onWindows && dir.length > MAX_WINDOWS_PATH) {
     const overflow = dir.length - MAX_WINDOWS_PATH;
     stem = stem.slice(0, Math.max(8, stem.length - overflow));
-    dir = join(root, stem);
+    dir = pm.join(root, stem);
   }
 
   return {

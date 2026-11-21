@@ -22,10 +22,12 @@ Other documents:
    its own exceptions. Verify artifacts instead.
 3. **Always pass `buildEnv()` when spawning Whisper.** Otherwise CUDA
    libraries are invisible and it fails with `libcublas.so.12 is not found`.
-4. **Never read free space from `df` on `/`.** It reports the virtual size of
-   `ext4.vhdx`. Use `statfs` on a Windows mount.
+4. **Never read free space from `df` on `/` under WSL.** It reports the
+   virtual size of `ext4.vhdx`. Use `statfs` on a Windows mount under WSL,
+   or on the target drive root on a Windows host.
 5. **Never invent a Whisper flag.** Check `whisper-ctranslate2 --help`.
-6. **Never hardcode the Windows username.** Discover it from `/mnt/c/Users`.
+6. **Never hardcode the Windows username.** Discover it from `/mnt/c/Users`
+   under WSL and from `homedir()` on Windows.
 7. **Server code takes no runtime dependencies.** `node:` built-ins only. The
    web client's dependency list is fixed; adding to it needs a reason.
 8. **One transcription at a time.** 6 GB of VRAM fits exactly one `large-v3`.

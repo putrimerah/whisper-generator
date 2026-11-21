@@ -521,7 +521,7 @@ the explicit host arguments added in Phase 1.
 **Goal:** fix four defects that are latent today and become visible failures on
 Windows. Each is independent and two or three lines.
 
-**Files:** `src/server/routes/misc.ts`, `src/server/workspace.ts`, `src/cli.ts`.
+**Files:** `src/server/routes/misc.ts`, `src/server/routes/jobs.ts`, `src/server/workspace.ts`, `src/server/server.test.ts`, `src/cli.ts`.
 
 ### Step 4a — ffprobe is never found on Windows
 
@@ -762,7 +762,7 @@ beside the executable, not Python packages in a venv:
   // pip puts the libs in site-packages/nvidia/*/lib, off the loader's path.
   // On Windows the loader searches the executable's own folder instead, so the
   // DLLs must live there and the equivalent names are cublas64_*.dll / cudnn*.dll.
-  const libDirs = cudaLibraryPath(cfg.whisperPath, plan.host);
+  const libDirs = cudaLibraryPath(cfg.whisperPath);
   let hasCublas: boolean;
   let hasCudnn: boolean;
   if (onWindows) {
@@ -1280,9 +1280,8 @@ These were checked and need no edit. Changing them is out of scope:
 `src/server/routes/jobs.ts`, `src/server/routes/meetings.ts`,
 `scripts/install-wsl.sh`, `Makefile`, `tsconfig.json`.
 
-`src/server/routes/jobs.ts` and `src/server/routes/meetings.ts` call
-`toWslPath`, which Phase 2 makes host-aware from the inside. They inherit the
-fix and must not be edited.
+`src/server/routes/meetings.ts` calls `toWslPath`, which Phase 2 makes
+host-aware from the inside. It inherits the fix and must not be edited.
 
 ## Appendix C — optional follow-up, not part of this plan
 

@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { detectHost } from "./platform.ts";
 import { wrapForInterop } from "./shell.ts";
-import type { Command, ExecutionPlan } from "./types.ts";
+import type { Command, ExecutionPlan, Host } from "./types.ts";
 
 /**
  * pip ships cuBLAS/cuDNN inside site-packages/nvidia/<pkg>/lib, which the
@@ -10,7 +11,11 @@ import type { Command, ExecutionPlan } from "./types.ts";
  * "Library libcublas.so.12 is not found". Resolve those directories from the
  * venv that owns the CLI and prepend them to LD_LIBRARY_PATH.
  */
-export function cudaLibraryPath(whisperPath: string): string[] {
+export function cudaLibraryPath(whisperPath: string, host: Host = detectHost()): string[] {
+  // Windows resolves a DLL's dependencies from the executable's own folder,
+  // and Python 3.8+ ignores PATH for extension modules, so there is nothing
+  // useful to inject. The DLLs must be installed beside the executable.
+  if (host === "windows") return [];
   if (!whisperPath.includes("/")) return [];
   const venvRoot = dirname(dirname(whisperPath));
   const libRoot = join(venvRoot, "lib");
@@ -27,8 +32,8 @@ export function cudaLibraryPath(whisperPath: string): string[] {
   return dirs;
 }
 
-export function buildEnv(whisperPath: string): NodeJS.ProcessEnv {
-  const dirs = cudaLibraryPath(whisperPath);
+export function buildEnv(whisperPath: string, host: Host = detectHost()): NodeJS.ProcessEnv {
+  const dirs = cudaLibraryPath(whisperPath, host);
   if (dirs.length === 0) return process.env;
   const existing = process.env.LD_LIBRARY_PATH;
   return {
@@ -58,8 +63,10 @@ export class CommandError extends Error {
 /** Run a command with inherited stdio so ffmpeg/Whisper progress stays live. */
 export function runCommand(cmd: Command, plan: ExecutionPlan, env?: NodeJS.ProcessEnv): Promise<void> {
   const final = wrapForInterop(cmd, plan);
+  // A .cmd/.bat wrapper cannot be executed directly by CreateProcess.
+  const needsShell = /\.(cmd|bat)$/i.test(final.bin);
   return new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(final.bin, final.args, { stdio: "inherit", shell: false, env });
+    const child = spawn(final.bin, final.args, { stdio: "inherit", shell: needsShell, env });
     child.on("error", (err) => {
       const hint =
         (err as NodeJS.ErrnoException).code === "ENOENT"

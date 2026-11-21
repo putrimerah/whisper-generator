@@ -40,14 +40,18 @@ export default function Health() {
             <dd>{disk.data ? formatBytes(disk.data.outputFreeBytes) : "…"}</dd>
           </div>
         </dl>
-        <p className="mt-4 text-xs text-zinc-400">
-          Deleting files inside WSL does not shrink ext4.vhdx. To return space to Windows, run in
-          PowerShell:
-        </p>
-        <pre className="mt-2 rounded bg-zinc-950 p-3 font-mono text-xs text-zinc-300">
+        {disk.data?.host === "wsl" && (
+          <>
+            <p className="mt-4 text-xs text-zinc-400">
+              Deleting files inside WSL does not shrink ext4.vhdx. To return space to Windows, run in
+              PowerShell:
+            </p>
+            <pre className="mt-2 rounded bg-zinc-950 p-3 font-mono text-xs text-zinc-300">
 {`wsl --shutdown
 wsl --manage Ubuntu --set-sparse true`}
-        </pre>
+            </pre>
+          </>
+        )}
       </Card>
     </div>
   );

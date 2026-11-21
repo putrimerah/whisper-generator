@@ -75,14 +75,14 @@ Now: pick the file, type who was there, press Start.
 
 | | Minimum | Notes |
 |---|---|---|
-| OS | WSL2, Linux, or macOS | Windows users run it inside WSL2 |
+| OS | Windows, WSL2, Linux, or macOS | Windows runs natively or inside WSL2 |
 | Node | **22 or newer** | 24 recommended; the test runner uses native TypeScript |
-| Python | 3.9+ | only to host the Whisper CLI, in its own venv |
+| Python | 3.9+ | needed on WSL2, Linux, and macOS to host the Whisper CLI |
 | Disk | ~6 GB | 2.5 GB runtime + 3 GB for the `large-v3` model |
 | GPU | optional | NVIDIA with 4 GB+ VRAM is roughly 10× faster than CPU |
-| ffmpeg | installed for you | static build placed in `~/.local/bin` |
+| ffmpeg | installed for you | static build placed in `~/.local/bin` or `~/.wg/bin` on Windows |
 
-No `sudo` is required anywhere. Nothing is installed system-wide.
+No `sudo` or administrator rights are required. Nothing is installed system-wide.
 
 **VRAM decides the model you can run:**
 
@@ -95,6 +95,20 @@ No `sudo` is required anywhere. Nothing is installed system-wide.
 `wg doctor` refuses to let you pick a model that will not fit.
 
 ## Install
+
+### Windows
+
+Open PowerShell in the cloned repository:
+
+```powershell
+npm run setup:windows
+npm start
+```
+
+The installer downloads ffmpeg and a self-contained CUDA Whisper build into
+`~/.wg`, then runs `doctor`.
+
+### WSL2, Linux, and macOS
 
 ```bash
 git clone https://github.com/<you>/whisper-generator.git
@@ -385,13 +399,13 @@ and people talking over each other.
 
 ## Platform notes
 
-| | WSL2 | Linux | macOS |
-|---|---|---|---|
-| Recordings default | Windows `Videos` | `~/Videos` | `~/Movies` |
-| Transcripts default | Windows `Documents/transcripts`, following the OneDrive redirect | `~/Documents/transcripts` | `~/Documents/transcripts` |
-| Free space measured on | the drive backing `ext4.vhdx` | the target filesystem | the target filesystem |
-| `--open` uses | `powershell.exe` | `xdg-open` | `open` |
-| Filename sanitising | on `/mnt/*` targets, for NTFS | not needed | not needed |
+| | Windows | WSL2 | Linux | macOS |
+|---|---|---|---|---|
+| Recordings default | `C:\Users\you\Videos` | Windows `Videos` | `~/Videos` | `~/Movies` |
+| Transcripts default | `C:\Users\you\Documents\transcripts`, following the OneDrive redirect | Windows `Documents/transcripts`, following the OneDrive redirect | `~/Documents/transcripts` | `~/Documents/transcripts` |
+| Free space measured on | target drive root | the drive backing `ext4.vhdx` | the target filesystem | the target filesystem |
+| `--open` uses | `cmd /c start` | `powershell.exe` | `xdg-open` | `open` |
+| Filename sanitising | all drive-letter targets, for NTFS | on `/mnt/*` targets, for NTFS | not needed | not needed |
 
 Nothing is hardcoded to one machine: usernames are discovered and every path
 is overridable in `.env`.

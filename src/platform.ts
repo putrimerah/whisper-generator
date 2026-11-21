@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import type { Engine, ExecutionPlan, Host } from "./types.ts";
 
@@ -30,6 +31,39 @@ export function resolvePlan(engine: Engine, host: Host = detectHost()): Executio
     return { host, engine: "windows", viaInterop: true, shell: "powershell" };
   }
   return { host, engine: "native", viaInterop: false, shell: "posix" };
+}
+
+/**
+ * Absolute-path test for a user-supplied path, per host. UNC paths
+ * (\\server\share) are refused on purpose: the allowlist in fsService
+ * cannot reason about network shares, so they must never look absolute.
+ */
+export function isAbsoluteUserPath(p: string, host: Host = detectHost()): boolean {
+  if (host === "windows") return /^[A-Za-z]:[\\/]/.test(p);
+  return p.startsWith("/");
+}
+
+/**
+ * Normalise a path the user typed or pasted, for the host we run on.
+ * On WSL a Windows path is converted to /mnt/<drive>. On a Windows host
+ * there is nothing to convert, so only the separators are tidied.
+ * Idempotent: a path already in the host's own form is returned unchanged.
+ */
+export function normalizeUserPath(p: string, host: Host = detectHost()): string {
+  const raw = p.trim().replace(/^"|"$/g, "");
+  if (raw === "") return raw;
+  if (host === "windows") return raw.replace(/\//g, "\\");
+  const isWindows = /^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith("\\\\");
+  if (!isWindows) return raw;
+  try {
+    return execFileSync("wslpath", ["-u", raw], { encoding: "utf8" }).trim();
+  } catch {
+    const m = /^([A-Za-z]):[\\/](.*)$/.exec(raw);
+    if (!m) return raw;
+    const drive = (m[1] as string).toLowerCase();
+    const rest = (m[2] as string).replace(/\\/g, "/");
+    return `/mnt/${drive}/${rest}`;
+  }
 }
 
 /**
@@ -90,7 +124,8 @@ export function windowsSpecialFolder(
 }
 
 /** Absolute WSL path of the Windows user profile, or null when unavailable. */
-export function windowsUserHome(): string | null {
+export function windowsUserHome(host: Host = detectHost()): string | null {
+  if (host === "windows") return homedir();
   const root = "/mnt/c/Users";
   if (!existsSync(root)) return null;
   let entries: string[];
@@ -123,30 +158,30 @@ export function hasWindowsMounts(): boolean {
   return existsSync("/mnt/c");
 }
 
-/** True when the path lives on a mounted Windows drive (NTFS via drvfs). */
-export function isOnWindowsMount(p: string): boolean {
+/**
+ * True when a Windows filesystem is reachable at all: a Windows host, or
+ * WSL with the drives mounted. Use this, not hasWindowsMounts(), when the
+ * question is "are we dealing with NTFS", because /mnt/c does not exist on
+ * a Windows host.
+ */
+export function hasWindowsFilesystem(host: Host = detectHost()): boolean {
+  if (host === "windows") return true;
+  return existsSync("/mnt/c");
+}
+
+/** True when the path lives on a Windows filesystem (NTFS). */
+export function isOnWindowsMount(p: string, host: Host = detectHost()): boolean {
+  if (host === "windows") return /^[A-Za-z]:[\\/]/.test(p);
   return /^\/mnt\/[a-z](\/|$)/i.test(p);
 }
 
 /**
- * Accept a Windows path and return the WSL path. Idempotent: a path that is
- * already POSIX is returned unchanged, so this is safe to apply to any
- * user-supplied location.
+ * Accept a Windows path and return the host's own form.
+ * Kept as the name the server routes already import; new code should call
+ * normalizeUserPath directly.
  */
 export function toWslPath(p: string): string {
-  const raw = p.trim().replace(/^"|"$/g, "");
-  if (raw === "") return raw;
-  const isWindows = /^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith("\\\\");
-  if (!isWindows) return raw;
-  try {
-    return execFileSync("wslpath", ["-u", raw], { encoding: "utf8" }).trim();
-  } catch {
-    const m = /^([A-Za-z]):[\\/](.*)$/.exec(raw);
-    if (!m) return raw;
-    const drive = (m[1] as string).toLowerCase();
-    const rest = (m[2] as string).replace(/\\/g, "/");
-    return `/mnt/${drive}/${rest}`;
-  }
+  return normalizeUserPath(p);
 }
 
 /**

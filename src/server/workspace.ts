@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, renameSync, rmSync, copyFileSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join, resolve, sep } from "node:path";
 import { WORK_ROOT } from "./jobStore.ts";
 import type { Job } from "./jobTypes.ts";
 
@@ -51,14 +51,18 @@ export function finalizeAudio(job: Job): string | null {
 
 /** The output directory is named after the stem, so reuse it for the wav. */
 function baseStem(job: Job): string {
-  return job.outDir.split("/").filter(Boolean).pop() ?? "audio";
+  return basename(job.outDir) || "audio";
 }
 
 /** Always safe to call, in success, failure and cancellation alike. */
 export function cleanupWorkspace(job: Job): void {
   if (!job.workDir) return;
-  if (job.workDir.startsWith("/mnt/")) {
-    throw new Error(`refusing to remove a workspace on a Windows mount: ${job.workDir}`);
+  // Hard rule 1: only our own files may be removed. Asserting containment in
+  // WORK_ROOT is stronger than the old "/mnt/" test and works on every host.
+  const dir = resolve(job.workDir);
+  const root = resolve(WORK_ROOT);
+  if (dir === root || !dir.startsWith(`${root}${sep}`)) {
+    throw new Error(`refusing to remove a workspace outside ${root}: ${job.workDir}`);
   }
-  rmSync(job.workDir, { recursive: true, force: true });
+  rmSync(dir, { recursive: true, force: true });
 }

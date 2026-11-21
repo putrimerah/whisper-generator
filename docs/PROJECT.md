@@ -20,8 +20,8 @@ prompt, run. Now: one command, or one form in a browser.
 
 The reference machine is described below. The code never hardcodes any of it:
 usernames are discovered, folders are detected per platform, and everything is
-overridable through `.env`. It also runs on plain Linux and macOS, where the
-Windows-specific paths fall back to `~/Videos` or `~/Movies` and
+overridable through `.env`. It runs on Windows natively, WSL, Linux and
+macOS, where the Windows-specific paths fall back to `~/Videos` or `~/Movies` and
 `~/Documents/transcripts`.
 
 
@@ -29,15 +29,15 @@ Windows-specific paths fall back to `~/Videos` or `~/Movies` and
 |---|---|
 | Host | Windows 11, single 512 GB SSD, drive `C:` only |
 | Publishing | repo is public; `make privacy` scans tracked files for the local username, tokens and media before every commit |
-| Dev + runtime | WSL2, distro `Ubuntu` |
+| Dev + runtime | WSL2, distro `Ubuntu`, or native Windows |
 | GPU | RTX 4050 Laptop, **6 GB VRAM** — the binding constraint |
 | Recordings | `C:\Users\you\Videos` (local, not synced) |
 | Transcripts | `C:\Users\you\OneDrive\Documents\transcripts` (synced, backed up) |
 | Windows Documents/Desktop | **redirected into OneDrive**; the plain folders are stubs |
-| Browser | on Windows, reaching the WSL server over forwarded `localhost` |
+| Browser | WSL reaches the Windows browser over forwarded `localhost`; native Windows opens it directly |
 
-Everything executes inside WSL. The user chose this ("option C") over calling
-Windows binaries through `powershell.exe` interop.
+Everything runs on the detected host. WSL and native Windows use the same
+codebase and `dist/` build.
 
 ## 3. Pipeline
 
@@ -87,11 +87,13 @@ The Settings screen says so on the Folders card.
    `site-packages/nvidia/*/lib`, which the dynamic loader does not search.
    Without the injected `LD_LIBRARY_PATH` it dies with
    `Library libcublas.so.12 is not found`.
-4. **Never read free space from `df` on `/`.** It reports the virtual 1 TB
-   size of `ext4.vhdx`. The real figure comes from `statfs` on a Windows mount.
+4. **Never read free space from `df` on `/` under WSL.** It reports the
+   virtual size of `ext4.vhdx`. Use `statfs` on a Windows mount under WSL,
+   or on the target drive root on a Windows host.
 5. **Never invent a Whisper flag.** Run `whisper-ctranslate2 --help` and use
    what exists.
-6. **Never hardcode the Windows username.** Discover it from `/mnt/c/Users`.
+6. **Never hardcode the Windows username.** Discover it from `/mnt/c/Users`
+   under WSL and from `homedir()` on Windows.
 7. **Transcription runs one at a time.** 6 GB of VRAM fits exactly one
    `large-v3`.
 
@@ -105,7 +107,14 @@ The Settings screen says so on the Folders card.
 | Audio | static ffmpeg in `~/.local/bin` | no sudo, no apt |
 | Web client | React 18, Vite, Tailwind, React Query, wouter | small, no component library |
 
-Installed by `scripts/install-wsl.sh`, user-level, idempotent, no sudo.
+Installed by `scripts/install-wsl.sh` on WSL/Linux/macOS or
+`scripts/install-windows.ps1` on Windows. Both are user-level and idempotent.
+
+### Windows host
+
+Windows uses `.exe` engines. The CUDA DLLs must sit beside the Whisper
+executable. `buildEnv()` remains mandatory at every Whisper spawn but is a
+deliberate no-op on Windows.
 
 ## 6. Code map
 
@@ -119,9 +128,9 @@ Installed by `scripts/install-wsl.sh`, user-level, idempotent, no sudo.
 | `types.ts` | `Config`, `RunOptions`, `MeetingRecord`, `Command`, `ExecutionPlan` |
 | `prompt.ts` | `initial_prompt` builder, 224-token budget, trims from the front so names and glossary survive |
 | `pipeline.ts` | builds ffmpeg and Whisper argv; `outputFormatArg()` (one value or `all`, never a comma list) |
-| `platform.ts` | host detection, `toWslPath()`, `isOnWindowsMount()`, `sanitizeForWindows()`, `windowsSpecialFolder()` (OneDrive redirect) |
+| `platform.ts` | host detection, `normalizeUserPath()`, `isAbsoluteUserPath()`, `hasWindowsFilesystem()`; `toWslPath()` delegates to `normalizeUserPath()` |
 | `shell.ts` | PowerShell/POSIX quoting, script rendering for `wg script` |
-| `exec.ts` | spawning, **`buildEnv()`** CUDA library injection |
+| `exec.ts` | spawning, **`buildEnv()`** CUDA library injection on Linux and no-op on Windows |
 | `meeting.ts` | `meeting.json` sidecar |
 | `doctor.ts` | environment checks incl. VRAM vs model |
 
@@ -137,7 +146,7 @@ Installed by `scripts/install-wsl.sh`, user-level, idempotent, no sudo.
 | `fsService.ts` | directory listing, **path allowlist**, favorites, output target planning, collision check |
 | `probe.ts` | ffprobe duration/size, cached, ETA at 2.3x realtime |
 | `disk.ts` | `freeBytesFor()`, `assertSpace()`, 500 MB margin |
-| `workspace.ts` | temp wav lifecycle; refuses to operate on `/mnt` |
+| `workspace.ts` | temp wav lifecycle; only removes paths under `WORK_ROOT` |
 | `runner.ts` | state machine, progress parsing, queue, verification, fallbacks |
 | `sse.ts` | Server-Sent Events with keepalive |
 | `aiExport.ts` | chatbot-ready Markdown, paragraph merging, token estimate |
@@ -187,7 +196,7 @@ Base `http://127.0.0.1:7788`. Errors: `{ "error": { code, message, detail } }`.
 | GET | `/api/health` | liveness |
 | GET | `/api/fs?path=&dirsOnly=` | list a directory; empty path returns favorites + `defaultPath`; `displayPath` shows home as `~` |
 | GET | `/api/fs/favorites` | favorites + default browse path |
-| POST | `/api/fs/resolve` | Windows path → WSL path |
+| POST | `/api/fs/resolve` | user path → host-native path |
 | GET | `/api/probe?path=` | duration, size, codec, ETA |
 | POST | `/api/prompt` | prompt preview + token count |
 | GET/PUT | `/api/config` | read/write `wg.config.json` |
@@ -218,7 +227,7 @@ Base `http://127.0.0.1:7788`. Errors: `{ "error": { code, message, detail } }`.
 | `large-v3` default | user chose quality over speed; also best at English/Malay code-switching |
 | `--language en` forced | mostly-English meetings; auto-detect flips language mid-recording |
 | No `.en` models | they mangle Malay words |
-| Read in place, extract audio only | copying a 2 GB video into WSL grows `ext4.vhdx` on the same C: drive it was meant to spare |
+| Read in place, extract audio only | copying a 2 GB video into WSL grows `ext4.vhdx` on the same C: drive it was meant to spare; native Windows also avoids an unnecessary copy |
 | `keepAudio` default off | ~115 MB/hour; the transcript is the artifact worth keeping |
 | Word timestamps opt-in | faster-whisper 1.2.1 crashes on some files; segment timestamps are enough to read |
 | Quality presets, not a quantization dropdown | "compute type" is meaningless to the user; Best/Faster/Compatibility is not |
@@ -255,6 +264,7 @@ Same 45-second clip:
 | `unrecognized arguments: --output_format srt,vtt` | comma list | `outputFormatArg()` |
 | Outputs named `audio.16k.srt` | wav lacked the source stem | `wavPathFor(dir, stem)` |
 | Opaque I/O error writing to `/mnt` | NTFS-illegal characters in the stem | `sanitizeForWindows()` |
+| Whisper runs on CPU on Windows | CUDA DLLs not beside the executable | re-run the installer; check `doctor` |
 | C: free space never grows after deleting WSL files | vhdx does not auto-shrink | `wsl --shutdown` then `wsl --manage Ubuntu --set-sparse true` |
 | OneDrive file unreadable from WSL | cloud-only placeholder | "Always keep on this device" |
 | Two jobs OOM the GPU | parallel transcription | queue depth 1 |

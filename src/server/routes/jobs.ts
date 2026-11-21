@@ -81,7 +81,7 @@ export function registerJobRoutes(
 
     const probe = await probeMedia(
       input,
-      state.config.ffmpegPath.replace(/ffmpeg$/, "ffprobe"),
+      state.config.ffmpegPath.replace(/ffmpeg(\.exe)?$/i, "ffprobe$1"),
     );
 
     const attendees = [...state.config.attendees, ...strArray(body.attendees, "attendees")];

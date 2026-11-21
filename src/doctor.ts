@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { dirname, join } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { buildEnv, cudaLibraryPath } from "./exec.ts";
 import { describePlan } from "./platform.ts";
 import { wrapForInterop } from "./shell.ts";
@@ -60,13 +61,16 @@ export function runDoctor(cfg: Config, plan: ExecutionPlan): Check[] {
     ok: true,
     detail: describePlan(plan),
   });
+  const onWindows = plan.host === "windows";
 
   const ff = probe(cfg.ffmpegPath, ["-version"], plan);
   checks.push({
     name: "ffmpeg",
     ok: ff.ok,
     detail: ff.ok ? (ff.out.split("\n")[0] ?? "ok") : "not found",
-    fix: ff.ok ? undefined : "bash scripts/install-wsl.sh",
+    fix: ff.ok ? undefined : onWindows
+      ? "powershell -ExecutionPolicy Bypass -File scripts/install-windows.ps1"
+      : "bash scripts/install-wsl.sh",
   });
 
   const wh = probe(cfg.whisperPath, ["--help"], plan);
@@ -74,32 +78,51 @@ export function runDoctor(cfg: Config, plan: ExecutionPlan): Check[] {
     name: "whisper",
     ok: wh.ok,
     detail: wh.ok ? cfg.whisperPath : `not runnable: ${cfg.whisperPath}`,
-    fix: wh.ok ? undefined : "bash scripts/install-wsl.sh, then set whisperPath in wg.config.json",
+    fix: wh.ok ? undefined : onWindows
+      ? "powershell -ExecutionPolicy Bypass -File scripts/install-windows.ps1"
+      : "bash scripts/install-wsl.sh",
   });
 
   // Reuse the venv that owns the whisper launcher, so torch is probed in the
   // same interpreter Whisper will actually import.
   const pythonPath = cfg.whisperPath.includes("/") || cfg.whisperPath.includes("\\")
-    ? join(dirname(cfg.whisperPath), "python")
-    : "python3";
+    ? join(dirname(cfg.whisperPath), onWindows ? "python.exe" : "python")
+    : onWindows
+      ? "python"
+      : "python3";
   const env = buildEnv(cfg.whisperPath);
   const ct2 = probe(pythonPath, ["-c", CT2_PROBE], plan, env);
   const gpu = gpuInfo(plan);
 
   // The failure mode that produced "Library libcublas.so.12 is not found":
   // pip puts the libs in site-packages/nvidia/*/lib, off the loader's path.
+  // On Windows the loader searches the executable's own folder instead, so the
+  // DLLs must live there and the equivalent names are cublas64_*.dll / cudnn*.dll.
   const libDirs = cudaLibraryPath(cfg.whisperPath);
-  const hasCublas = libDirs.some((d) => d.includes("cublas"));
-  const hasCudnn = libDirs.some((d) => d.includes("cudnn"));
+  let hasCublas: boolean;
+  let hasCudnn: boolean;
+  if (onWindows) {
+    const dllDir = dirname(cfg.whisperPath);
+    const dlls = existsSync(dllDir) ? readdirSync(dllDir) : [];
+    hasCublas = dlls.some((f) => /^cublas64_\d+\.dll$/i.test(f));
+    hasCudnn = dlls.some((f) => /^cudnn.*\.dll$/i.test(f));
+  } else {
+    hasCublas = libDirs.some((d) => d.includes("cublas"));
+    hasCudnn = libDirs.some((d) => d.includes("cudnn"));
+  }
   checks.push({
     name: "cuda libs",
     ok: hasCublas && hasCudnn,
     detail: hasCublas && hasCudnn
-      ? `cuBLAS + cuDNN found, LD_LIBRARY_PATH injected by wg`
+      ? onWindows
+        ? `cuBLAS + cuDNN DLLs found beside ${basename(cfg.whisperPath)}`
+        : `cuBLAS + cuDNN found, LD_LIBRARY_PATH injected by wg`
       : `missing: ${[!hasCublas && "cuBLAS", !hasCudnn && "cuDNN"].filter(Boolean).join(", ")}`,
     fix: hasCublas && hasCudnn
       ? undefined
-      : `${dirname(cfg.whisperPath)}/pip install nvidia-cublas-cu12 'nvidia-cudnn-cu12>=9,<10'`,
+      : onWindows
+        ? `put cublas64_*.dll and cudnn*.dll next to ${cfg.whisperPath}`
+        : `${dirname(cfg.whisperPath)}/pip install nvidia-cublas-cu12 'nvidia-cudnn-cu12>=9,<10'`,
   });
 
   if (ct2.ok) {
@@ -112,6 +135,14 @@ export function runDoctor(cfg: Config, plan: ExecutionPlan): Check[] {
         ? `v${version}, ${deviceCount} CUDA device(s)`
         : `v${version}, CPU only (roughly 10x slower)`,
       fix: hasCuda ? undefined : "check the NVIDIA driver on Windows; WSL inherits it",
+    });
+  } else if (onWindows) {
+    // A self-contained Windows build ships no interpreter; the GPU check
+    // below is the real signal.
+    checks.push({
+      name: "ctranslate2",
+      ok: true,
+      detail: "no Python interpreter beside the executable; bundled build assumed",
     });
   } else {
     checks.push({

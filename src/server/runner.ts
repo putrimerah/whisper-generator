@@ -270,11 +270,13 @@ export class JobRunner {
     stage: JobState,
     totalSeconds: number,
   ): Promise<void> {
+    const needsShell = /\.(cmd|bat)$/i.test(command.bin);
     return new Promise((resolvePromise, rejectPromise) => {
       const child = spawn(command.bin, command.args, {
         stdio: ["ignore", "pipe", "pipe"],
         env: buildEnv(this.config.whisperPath),
         detached: true,
+        shell: needsShell,
       });
       this.children.set(job.id, child);
 

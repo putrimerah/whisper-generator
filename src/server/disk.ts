@@ -1,6 +1,8 @@
 import { statfs } from "node:fs/promises";
 import { homedir } from "node:os";
-import { hasWindowsMounts, isOnWindowsMount } from "../platform.ts";
+import { parse, resolve } from "node:path";
+import { detectHost, hasWindowsMounts, isOnWindowsMount } from "../platform.ts";
+import type { Host } from "../types.ts";
 import { diskFull } from "./errors.ts";
 import { WAV_BYTES_PER_SECOND } from "./probe.ts";
 
@@ -15,12 +17,18 @@ export const LOW_SPACE_WARNING_BYTES = 5_000_000_000;
  * /mnt/<drive> consume that drive. Either way the honest number comes from
  * statfs on a Windows mount.
  */
-export async function freeBytesFor(targetPath: string): Promise<number> {
-  const probePath = isOnWindowsMount(targetPath)
-    ? targetPath.split("/").slice(0, 3).join("/")
-    : hasWindowsMounts()
-      ? "/mnt/c" // WSL: writes grow ext4.vhdx, which lives on C:
-      : targetPath; // plain Linux or macOS: the filesystem is the truth
+export async function freeBytesFor(
+  targetPath: string,
+  host: Host = detectHost(),
+): Promise<number> {
+  const probePath =
+    host === "windows"
+      ? parse(resolve(targetPath)).root
+      : isOnWindowsMount(targetPath, host)
+        ? targetPath.split("/").slice(0, 3).join("/")
+        : hasWindowsMounts()
+          ? "/mnt/c" // WSL: writes grow ext4.vhdx, which lives on C:
+          : targetPath; // plain Linux or macOS: the filesystem is the truth
   try {
     const { bavail, bsize } = await statfs(probePath);
     return Number(bavail) * Number(bsize);
@@ -59,22 +67,27 @@ export async function assertSpace(
 }
 
 export async function diskReport(outputRoot: string): Promise<{
+  host: Host;
   windowsFreeBytes: number;
   outputFreeBytes: number;
   warning: string | null;
 }> {
+  const host = detectHost();
+  // The system drive: C: on Windows, the drive holding ext4.vhdx under WSL.
+  const systemProbe = host === "windows" ? homedir() : hasWindowsMounts() ? "/mnt/c" : homedir();
   const [windowsFreeBytes, outputFreeBytes] = await Promise.all([
-    freeBytesFor(hasWindowsMounts() ? "/mnt/c" : homedir()),
-    freeBytesFor(outputRoot),
+    freeBytesFor(systemProbe, host),
+    freeBytesFor(outputRoot, host),
   ]);
   const lowest = Math.min(windowsFreeBytes, outputFreeBytes);
   return {
+    host,
     windowsFreeBytes,
     outputFreeBytes,
     warning:
       lowest < LOW_SPACE_WARNING_BYTES
         ? `Only ${formatBytes(lowest)} free. Transcription may fail.` +
-          (hasWindowsMounts()
+          (host === "wsl"
             ? ` Reclaim WSL space with: wsl --shutdown, then wsl --manage <distro> --set-sparse true`
             : "")
         : null,

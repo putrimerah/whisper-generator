@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
-import { JobStore } from "./jobStore.ts";
+import { JobStore, WORK_ROOT } from "./jobStore.ts";
 import { makeJobId, TERMINAL_STATES } from "./jobTypes.ts";
 import { isPathAllowed, planOutputTarget, toWindowsDisplayPath, isMediaPath, nextFreeDir, defaultBrowsePath, tildify } from "./fsService.ts";
 import { readEnvSettings } from "../env.ts";
-import { userMediaDir } from "../platform.ts";
+import { detectHost, isAbsoluteUserPath, normalizeUserPath, userMediaDir } from "../platform.ts";
 import { DEFAULT_CONFIG, defaultOutputRoot } from "../config.ts";
 import { estimateNeeded, formatBytes, SAFETY_MARGIN_BYTES } from "./disk.ts";
 import { cleanupWorkspace, wavPathFor } from "./workspace.ts";
@@ -105,12 +105,12 @@ test("log tail is capped", () => {
 });
 
 test("path allowlist blocks traversal and system paths", () => {
-  assert.equal(isPathAllowed("/mnt/c/Users/x/a.mp4"), true);
-  assert.equal(isPathAllowed(homedir()), true);
-  assert.equal(isPathAllowed("/etc/passwd"), false);
-  assert.equal(isPathAllowed("/mnt/../etc/passwd"), false);
-  assert.equal(isPathAllowed("relative/path.mp4"), false);
-  assert.equal(isPathAllowed("/tmp/x.mp4"), false);
+  assert.equal(isPathAllowed("/mnt/c/Users/x/a.mp4", [], "linux"), true);
+  assert.equal(isPathAllowed(homedir(), [], "linux"), true);
+  assert.equal(isPathAllowed("/etc/passwd", [], "linux"), false);
+  assert.equal(isPathAllowed("/mnt/../etc/passwd", [], "linux"), false);
+  assert.equal(isPathAllowed("relative/path.mp4", [], "linux"), false);
+  assert.equal(isPathAllowed("/tmp/x.mp4", [], "linux"), false);
 });
 
 test("media classification", () => {
@@ -120,17 +120,17 @@ test("media classification", () => {
 });
 
 test("windows display paths", () => {
-  assert.equal(toWindowsDisplayPath("/mnt/c/Users/x"), "C:\\Users\\x");
-  assert.equal(toWindowsDisplayPath("/mnt/d"), "D:\\");
-  assert.equal(toWindowsDisplayPath("/home/you"), null);
+  assert.equal(toWindowsDisplayPath("/mnt/c/Users/x", "wsl"), "C:\\Users\\x");
+  assert.equal(toWindowsDisplayPath("/mnt/d", "wsl"), "D:\\");
+  assert.equal(toWindowsDisplayPath("/home/you", "wsl"), null);
 });
 
 test("output stems are sanitised only for windows targets", () => {
-  const win = planOutputTarget("/home/x/sync: Q3 review.mp4", "/mnt/c/Users/x/Documents");
+  const win = planOutputTarget("/home/x/sync: Q3 review.mp4", "/mnt/c/Users/x/Documents", "wsl");
   assert.equal(win.stem, "sync_ Q3 review");
   assert.equal(win.adjusted, true);
 
-  const wsl = planOutputTarget("/home/x/sync: Q3 review.mp4", "/home/x/out");
+  const wsl = planOutputTarget("/home/x/sync: Q3 review.mp4", "/home/x/out", "wsl");
   assert.equal(wsl.stem, "sync: Q3 review");
   assert.equal(wsl.adjusted, false);
 });
@@ -162,7 +162,8 @@ test("workspace wav carries the source stem", () => {
 });
 
 test("workspace cleanup removes the directory", () => {
-  const dir = mkdtempSync(join(tmpdir(), "wg-work-"));
+  mkdirSync(WORK_ROOT, { recursive: true });
+  const dir = mkdtempSync(join(WORK_ROOT, "wg-work-"));
   writeFileSync(join(dir, "audio.wav"), "x");
   cleanupWorkspace({ workDir: dir } as Job);
   assert.equal(existsSync(dir), false);
@@ -248,8 +249,10 @@ test("env settings override config, windows paths converted", () => {
   process.env.WG_PORT = "9001";
 
   const env = readEnvSettings("/nonexistent-dir-so-no-dotenv-is-read");
-  assert.equal(env.config.browseRoot, "/mnt/c/Users/someone/Videos");
-  assert.equal(env.config.outputRoot, "/mnt/d/transcripts");
+  if (detectHost() !== "windows") {
+    assert.equal(env.config.browseRoot, "/mnt/c/Users/someone/Videos");
+    assert.equal(env.config.outputRoot, "/mnt/d/transcripts");
+  }
   assert.equal(env.config.model, "medium");
   assert.equal(env.config.keepAudio, true);
   assert.deepEqual(env.config.terms, ["Kafka", "Atlas"]);
@@ -294,7 +297,7 @@ test("favorites fall back to local folders without windows mounts", () => {
 test("output root never lands inside the repository", () => {
   // ./out would pollute a cloned checkout; Documents or ~/transcripts instead.
   const root = defaultOutputRoot();
-  assert.ok(root.startsWith("/"), `expected an absolute path, got ${root}`);
+  assert.ok(isAbsoluteUserPath(root), `expected an absolute path, got ${root}`);
   assert.ok(!root.includes("whisper-generator"), `output root must not be in the repo: ${root}`);
 });
 
@@ -334,4 +337,54 @@ test("picker paths show home as ~", () => {
   assert.equal(tildify("/home/you", "/home/you"), "~");
   assert.equal(tildify("/home/younger/x", "/home/you"), "/home/younger/x");
   assert.equal(tildify("/mnt/c/Users", "/home/you"), "/mnt/c/Users");
+});
+
+test("absolute path detection per host", () => {
+  assert.equal(isAbsoluteUserPath("/home/you/a.mp4", "linux"), true);
+  assert.equal(isAbsoluteUserPath("C:\\Users\\you\\a.mp4", "linux"), false);
+  assert.equal(isAbsoluteUserPath("C:\\Users\\you\\a.mp4", "windows"), true);
+  assert.equal(isAbsoluteUserPath("C:/Users/you/a.mp4", "windows"), true);
+  assert.equal(isAbsoluteUserPath("/home/you/a.mp4", "windows"), false);
+  // UNC is refused: the allowlist cannot reason about network shares.
+  assert.equal(isAbsoluteUserPath("\\\\server\\share\\a.mp4", "windows"), false);
+  assert.equal(isAbsoluteUserPath("relative\\a.mp4", "windows"), false);
+});
+
+test("user paths are left alone on a windows host", () => {
+  assert.equal(normalizeUserPath("C:\\Users\\you\\Videos", "windows"), "C:\\Users\\you\\Videos");
+  // Forward slashes are accepted and normalised to backslashes.
+  assert.equal(normalizeUserPath("D:/transcripts", "windows"), "D:\\transcripts");
+  assert.equal(normalizeUserPath('  "C:\\Users\\you"  ', "windows"), "C:\\Users\\you");
+  assert.equal(normalizeUserPath("", "windows"), "");
+});
+
+test("windows allowlist is case-insensitive and drive-scoped", () => {
+  const root = "C:\\Users\\you";
+  assert.equal(isPathAllowed("C:\\Users\\you\\a.mp4", [root], "windows"), true);
+  // NTFS is case-insensitive, so the containment check must be too,
+  // otherwise capitalisation walks straight past the allowlist.
+  assert.equal(isPathAllowed("c:\\users\\YOU\\a.mp4", [root], "windows"), true);
+  assert.equal(isPathAllowed("C:\\Windows\\System32\\cmd.exe", [root], "windows"), false);
+  assert.equal(isPathAllowed("D:\\elsewhere\\a.mp4", [root], "windows"), false);
+  assert.equal(isPathAllowed("C:\\Users\\you\\..\\other\\a.mp4", [root], "windows"), false);
+  assert.equal(isPathAllowed("\\\\server\\share\\a.mp4", [root], "windows"), false);
+  // Alternate data streams are a Windows-only way to hide a payload.
+  assert.equal(isPathAllowed("C:\\Users\\you\\a.txt:hidden", [root], "windows"), false);
+  // A bare drive root as the allowed root must still work.
+  assert.equal(isPathAllowed("D:\\clips\\a.mp4", ["D:\\"], "windows"), true);
+});
+
+test("windows output stems are sanitised for NTFS", () => {
+  const win = planOutputTarget(
+    "C:\\Users\\you\\sync: Q3 review.mp4",
+    "C:\\Users\\you\\Documents",
+    "windows",
+  );
+  assert.equal(win.stem, "sync_ Q3 review");
+  assert.equal(win.adjusted, true);
+  assert.equal(win.dir, "C:\\Users\\you\\Documents\\sync_ Q3 review");
+});
+
+test("display path on a windows host is the path itself", () => {
+  assert.equal(toWindowsDisplayPath("C:\\Users\\you", "windows"), "C:\\Users\\you");
 });

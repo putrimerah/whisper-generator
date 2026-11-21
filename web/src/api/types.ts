@@ -97,6 +97,7 @@ export interface Segment {
 export interface Check { name: string; ok: boolean; detail: string; fix?: string }
 
 export interface DiskReport {
+  host: "windows" | "wsl" | "linux" | "macos";
   windowsFreeBytes: number; outputFreeBytes: number; warning: string | null;
 }
 
