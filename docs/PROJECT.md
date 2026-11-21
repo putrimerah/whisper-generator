@@ -108,7 +108,9 @@ The Settings screen says so on the Folders card.
 | Web client | React 18, Vite, Tailwind, React Query, wouter | small, no component library |
 
 Installed by `scripts/install-wsl.sh` on WSL/Linux/macOS or
-`scripts/install-windows.ps1` on Windows. Both are user-level and idempotent.
+`scripts/install-windows.ps1` on Windows. `scripts/bootstrap-windows.ps1`
+installs missing Node.js LTS and Git through `winget` before the Windows
+installer runs. All scripts are user-level and idempotent.
 
 ### Windows host
 

@@ -76,13 +76,20 @@ Now: pick the file, type who was there, press Start.
 | | Minimum | Notes |
 |---|---|---|
 | OS | Windows, WSL2, Linux, or macOS | Windows runs natively or inside WSL2 |
-| Node | **22 or newer** | 24 recommended; the test runner uses native TypeScript |
+| Node.js + npm | **22 or newer** | 24 recommended; npm ships with Node |
+| Git | current version | used to clone and update this repository |
 | Python | 3.9+ | needed on WSL2, Linux, and macOS to host the Whisper CLI |
+| Build tools | `make`, `curl`, `tar` | needed on WSL2 and Linux |
 | Disk | ~6 GB | 2.5 GB runtime + 3 GB for the `large-v3` model |
 | GPU | optional | NVIDIA with 4 GB+ VRAM is roughly 10× faster than CPU |
 | ffmpeg | installed for you | static build placed in `~/.local/bin` or `~/.wg/bin` on Windows |
 
-No `sudo` or administrator rights are required. Nothing is installed system-wide.
+The project installs ffmpeg, Whisper, CUDA runtime libraries, and model files
+inside your user folder. You need administrator rights only to install missing
+system prerequisites such as Node, Python, or `make`.
+
+For GPU transcription, install a current NVIDIA display driver first. You do
+not need the CUDA Toolkit: the installer fetches required CUDA runtime files.
 
 **VRAM decides the model you can run:**
 
@@ -98,22 +105,102 @@ No `sudo` or administrator rights are required. Nothing is installed system-wide
 
 ### Windows
 
-Open PowerShell in the cloned repository:
+Use one PowerShell command from an extracted or cloned repository folder:
 
 ```powershell
-npm run setup:windows
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bootstrap-windows.ps1
+```
+
+It installs missing Node.js LTS, Git, ffmpeg, Whisper, CUDA runtime files,
+npm dependencies, and app build. It then runs `doctor`.
+
+Requirements for this command:
+
+- 64-bit Windows 10 or 11
+- Windows App Installer, which provides `winget`
+- Internet connection and roughly 6 GB free disk space
+- Run it from an extracted or cloned repository folder
+
+If Git is not installed, download repository source as a ZIP in your browser,
+extract it, and run command above. Bootstrap installs Git for later updates.
+
+For GPU transcription, install a current NVIDIA display driver before setup.
+CPU-only mode also works. CUDA Toolkit, Python, WSL, and administrator rights
+are not required.
+
+After setup, start app with:
+
+```powershell
 npm start
 ```
 
-The installer downloads ffmpeg and a self-contained CUDA Whisper build into
-`~/.wg`, then runs `doctor`.
+The installer stores ffmpeg and Whisper under `%USERPROFILE%\.wg`.
 
-### WSL2, Linux, and macOS
+If Windows installer cannot unpack a `.7z` Whisper download, install
+[7-Zip](https://www.7-zip.org/), extract it into `%USERPROFILE%\.wg\engine`,
+then run bootstrap command again. Keep CUDA DLLs beside Whisper `.exe`.
+
+### WSL2
+
+Required before setup:
+
+1. WSL2 with a current Linux distribution. Install it from an elevated
+   PowerShell with `wsl --install`, then restart Windows if asked.
+2. Node.js 22+, Git, GNU Make, curl, tar, Python 3, and Python `venv` in
+   your Linux distribution.
+3. For GPU use, install a current NVIDIA Windows driver with WSL CUDA support.
+   `nvidia-smi` must work inside WSL. Do not install Linux CUDA Toolkit.
+
+On Ubuntu or Debian, install Linux prerequisites with:
+
+```bash
+sudo apt update
+sudo apt install -y git make curl tar python3 python3-venv
+```
+
+Install Node.js 22+ using your distribution's supported method, then confirm:
+
+```bash
+node --version
+npm --version
+python3 --version
+make --version
+```
+
+Clone and install from the Linux shell:
 
 ```bash
 git clone https://github.com/<you>/whisper-generator.git
 cd whisper-generator
 make install
+make
+```
+
+WSL opens app in Windows browser at `http://localhost:7788`.
+
+### Linux
+
+Required before setup: Git, Node.js 22+ with npm, GNU Make, curl, tar,
+Python 3.9+, and Python `venv`. On Ubuntu or Debian:
+
+```bash
+sudo apt update
+sudo apt install -y git make curl tar python3 python3-venv
+```
+
+Install Node.js 22+ from your distribution's supported Node package source.
+Some distribution default repositories ship an older Node release. Verify it
+before continuing:
+
+```bash
+node --version
+npm --version
+python3 --version
+
+git clone https://github.com/<you>/whisper-generator.git
+cd whisper-generator
+make install
+make
 ```
 
 `make install` is idempotent and does four things:
@@ -145,14 +232,25 @@ Every failing line prints the exact command that fixes it.
 
 ### macOS
 
-The installer's ffmpeg download is Linux-only. Install the pieces yourself,
-then the rest of the project works unchanged:
+Required before setup: Xcode Command Line Tools, Homebrew, and an internet
+connection. Install Command Line Tools first:
 
 ```bash
-brew install ffmpeg python@3.12
+xcode-select --install
+```
+
+Install Git, Node, Python, and ffmpeg with Homebrew. The installer download is
+Linux-only, so macOS needs Homebrew ffmpeg:
+
+```bash
+brew install git node python@3.12 ffmpeg
+git clone https://github.com/<you>/whisper-generator.git
+cd whisper-generator
 python3 -m venv ~/.wg/venv
 ~/.wg/venv/bin/pip install whisper-ctranslate2
-make build && make doctor
+make build
+make doctor
+make
 ```
 
 There is no CUDA on macOS, so transcription runs on CPU. Use `WG_MODEL=medium`
