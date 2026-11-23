@@ -123,7 +123,8 @@ doctor: dist/cli.js ## Check ffmpeg, Whisper, CUDA libraries, VRAM vs model
 
 setup: install ## Alias for `make install`
 
-install: node_modules web/node_modules $(WHISPER) hooks ## Install everything, including Whisper and ffmpeg
+install: node_modules web/node_modules hooks ## Install everything, including Whisper and ffmpeg
+	@bash scripts/install-wsl.sh
 	@$(MAKE) --no-print-directory build
 	@$(MAKE) --no-print-directory doctor
 

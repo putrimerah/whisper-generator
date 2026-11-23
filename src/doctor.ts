@@ -73,7 +73,7 @@ export function runDoctor(cfg: Config, plan: ExecutionPlan): Check[] {
       : "bash scripts/install-wsl.sh",
   });
 
-  const wh = probe(cfg.whisperPath, ["--help"], plan);
+  const wh = probe(cfg.whisperPath, ["--help"], plan, buildEnv(cfg.whisperPath));
   checks.push({
     name: "whisper",
     ok: wh.ok,
@@ -103,7 +103,9 @@ export function runDoctor(cfg: Config, plan: ExecutionPlan): Check[] {
   let hasCudnn: boolean;
   if (onWindows) {
     const dllDir = dirname(cfg.whisperPath);
-    const dlls = existsSync(dllDir) ? readdirSync(dllDir) : [];
+    const nvidiaDir = join(dirname(dllDir), "Lib", "site-packages", "nvidia");
+    const dirs = [dllDir, join(nvidiaDir, "cublas", "bin"), join(nvidiaDir, "cudnn", "bin")];
+    const dlls = dirs.flatMap((dir) => existsSync(dir) ? readdirSync(dir) : []);
     hasCublas = dlls.some((f) => /^cublas64_\d+\.dll$/i.test(f));
     hasCudnn = dlls.some((f) => /^cudnn.*\.dll$/i.test(f));
   } else {
@@ -112,16 +114,16 @@ export function runDoctor(cfg: Config, plan: ExecutionPlan): Check[] {
   }
   checks.push({
     name: "cuda libs",
-    ok: hasCublas && hasCudnn,
-    detail: hasCublas && hasCudnn
+    ok: !gpu || (hasCublas && hasCudnn),
+    detail: !gpu ? "no NVIDIA GPU detected; CPU mode" : hasCublas && hasCudnn
       ? onWindows
-        ? `cuBLAS + cuDNN DLLs found beside ${basename(cfg.whisperPath)}`
+        ? `cuBLAS + cuDNN DLLs found for ${basename(cfg.whisperPath)}`
         : `cuBLAS + cuDNN found, LD_LIBRARY_PATH injected by wg`
       : `missing: ${[!hasCublas && "cuBLAS", !hasCudnn && "cuDNN"].filter(Boolean).join(", ")}`,
-    fix: hasCublas && hasCudnn
+    fix: !gpu || (hasCublas && hasCudnn)
       ? undefined
       : onWindows
-        ? `put cublas64_*.dll and cudnn*.dll next to ${cfg.whisperPath}`
+        ? "rerun the Windows installer to install cuBLAS and cuDNN"
         : `${dirname(cfg.whisperPath)}/pip install nvidia-cublas-cu12 'nvidia-cudnn-cu12>=9,<10'`,
   });
 
@@ -130,11 +132,11 @@ export function runDoctor(cfg: Config, plan: ExecutionPlan): Check[] {
     const hasCuda = Number(deviceCount ?? 0) > 0;
     checks.push({
       name: "ctranslate2",
-      ok: hasCuda,
+      ok: hasCuda || !gpu,
       detail: hasCuda
         ? `v${version}, ${deviceCount} CUDA device(s)`
         : `v${version}, CPU only (roughly 10x slower)`,
-      fix: hasCuda ? undefined : "check the NVIDIA driver on Windows; WSL inherits it",
+      fix: hasCuda || !gpu ? undefined : "check the NVIDIA driver and CUDA runtime",
     });
   } else if (onWindows) {
     // A self-contained Windows build ships no interpreter; the GPU check

@@ -11,8 +11,8 @@ nothing leaves the machine.
 make
 ```
 
-That installs what is missing, builds what changed, and opens the web app.
-On Windows, follow the [Windows installation steps](#windows) first.
+That builds what changed and opens the web app. First, run the installation
+command for your platform in [Install](#install).
 
 ---
 
@@ -79,7 +79,7 @@ Now: pick the file, type who was there, press Start.
 | OS | Windows, WSL2, Linux, or macOS | Windows runs natively or inside WSL2 |
 | Node.js + npm | **22 or newer** | 24 recommended; npm ships with Node |
 | Git | current version | used to clone and update this repository |
-| Python | 3.9+ | needed on WSL2, Linux, and macOS to host the Whisper CLI |
+| Python | 3.9+ | Windows setup installs Python 3.11 if needed |
 | Build tools | `make`, `curl`, `tar` | needed on WSL2 and Linux |
 | Disk | ~6 GB | 2.5 GB runtime + 3 GB for the `large-v3` model |
 | GPU | optional | NVIDIA with 4 GB+ VRAM is roughly 10× faster than CPU |
@@ -135,7 +135,7 @@ If it returns `False`, navigate to the extracted or cloned folder containing
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bootstrap-windows.ps1
 ```
 
-It installs missing Node.js LTS, Git, ffmpeg, Whisper, CUDA runtime files,
+It installs missing Node.js LTS, Git, Python 3.11, ffmpeg, Whisper, CUDA runtime files,
 npm dependencies, and app build. It then runs `doctor`.
 
 Requirements for this command:
@@ -146,8 +146,9 @@ Requirements for this command:
 - Run it from the extracted or cloned repository folder
 
 For GPU transcription, install a current NVIDIA display driver before setup.
-CPU-only mode also works. CUDA Toolkit, Python, WSL, and administrator rights
-are not required.
+For CPU-only mode, set `WG_DEVICE=cpu` and `WG_COMPUTE_TYPE=int8` in `.env`.
+CUDA Toolkit and WSL are not required. Installing
+system prerequisites through winget may request administrator rights.
 
 After setup, start the app from the repository folder:
 
@@ -171,9 +172,9 @@ The installer stores ffmpeg and Whisper under `%USERPROFILE%\.wg`.
 It adds `WG_FFMPEG_PATH` and `WG_WHISPER_PATH` to `.env` when the executables
 exist and the settings are absent. Existing settings are left unchanged.
 
-If Windows installer cannot unpack a `.7z` Whisper download, install
-[7-Zip](https://www.7-zip.org/), extract it into `%USERPROFILE%\.wg\engine`,
-then run bootstrap command again. Keep CUDA DLLs beside Whisper `.exe`.
+Windows setup installs `whisper-ctranslate2` in `%USERPROFILE%\.wg\venv`.
+The model downloads on first transcription. If an existing `.env` sets an old
+`WG_WHISPER_PATH`, update that setting to the new executable path.
 
 #### Install from Git Bash
 
@@ -187,7 +188,7 @@ cd whisper-generator
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-windows.ps1
 ```
 
-The Windows requirements and `.7z` extraction instructions above also apply.
+The Windows requirements above also apply.
 The installer runs PowerShell; Git Bash does not require WSL. If setup installs
 Node.js, close and reopen Git Bash so it picks up the updated PATH. Return to
 the `whisper-generator` folder and start the app:
@@ -295,22 +296,18 @@ connection. Install Command Line Tools first:
 xcode-select --install
 ```
 
-Install Git, Node, Python, and ffmpeg with Homebrew. The installer download is
-Linux-only, so macOS needs Homebrew ffmpeg:
+Install Git, Node, and Python with Homebrew, then run setup:
 
 ```bash
-brew install git node python@3.12 ffmpeg
-git clone https://github.com/<you>/whisper-generator.git
+brew install git node python@3.12
+git clone https://github.com/putrimerah/whisper-generator.git
 cd whisper-generator
-python3 -m venv ~/.wg/venv
-~/.wg/venv/bin/pip install whisper-ctranslate2
-make build
-make doctor
+make install
 make
 ```
 
-There is no CUDA on macOS, so transcription runs on CPU. Use `WG_MODEL=medium`
-and expect roughly realtime speed.
+There is no CUDA on macOS, so transcription runs on CPU. Set `WG_DEVICE=cpu`
+and `WG_COMPUTE_TYPE=int8` in `.env`. Use `WG_MODEL=medium` for faster runs.
 
 ### No GPU
 

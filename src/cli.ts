@@ -216,7 +216,7 @@ async function main(argv: string[]): Promise<number> {
       process.stdout.write(formatChecks(checks));
       const failed = checks.filter((c) => !c.ok);
       if (failed.length > 0) {
-        process.stderr.write(`\n${failed.length} check(s) failed. Run: bash scripts/install-wsl.sh\n`);
+        process.stderr.write(`\n${failed.length} check(s) failed. See the fixes above.\n`);
         return 1;
       }
       return 0;

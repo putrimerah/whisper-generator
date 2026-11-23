@@ -53,6 +53,12 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 }
 Write-Host "Git $(& git --version) ready"
 
+if (-not (Get-Command py -ErrorAction SilentlyContinue) -or -not (& py -3.11 -c 'import sys; print(sys.version_info.major)' 2>$null)) {
+  Install-WingetPackage 'Python.Python.3.11' 'Python 3.11'
+}
+& py -3.11 -c 'import sys; print(sys.version)'
+if ($LASTEXITCODE -ne 0) { throw 'Python 3.11 is required; restart PowerShell and run setup again.' }
+
 if (-not (Test-Path (Join-Path $Root 'package.json'))) {
   throw "Run this script from the whisper-generator repository."
 }

@@ -6,8 +6,7 @@ $ErrorActionPreference = 'Stop'
 
 $Root    = Join-Path $env:USERPROFILE '.wg'
 $BinDir  = Join-Path $Root 'bin'
-$EngDir  = Join-Path $Root 'engine'
-New-Item -ItemType Directory -Force -Path $BinDir, $EngDir | Out-Null
+New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 
 function Log($msg) {
   Write-Host ""
@@ -21,56 +20,42 @@ if (Test-Path $ffmpeg) {
   Write-Host "already installed: $ffmpeg"
 } else {
   $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
-  $zip = Join-Path $env:TEMP 'wg-ffmpeg.zip'
-  $tmp = Join-Path $env:TEMP 'wg-ffmpeg-extract'
+  $work = Join-Path $Root 'work'
+  New-Item -ItemType Directory -Force -Path $work | Out-Null
+  $tmp = Join-Path $work ([guid]::NewGuid().ToString())
+  New-Item -ItemType Directory -Path $tmp | Out-Null
+  $zip = Join-Path $tmp 'ffmpeg.zip'
+  $extract = Join-Path $tmp 'extract'
   Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
-  if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
-  Expand-Archive -Path $zip -DestinationPath $tmp -Force
-  Get-ChildItem $tmp -Recurse -Include 'ffmpeg.exe','ffprobe.exe' |
-    ForEach-Object { Copy-Item $_.FullName -Destination $BinDir -Force }
-  Remove-Item $zip, $tmp -Recurse -Force
+  Expand-Archive -Path $zip -DestinationPath $extract
+  Get-ChildItem $extract -Recurse -Include 'ffmpeg.exe','ffprobe.exe' |
+    ForEach-Object { if (-not (Test-Path (Join-Path $BinDir $_.Name))) { Copy-Item $_.FullName -Destination $BinDir } }
+  Remove-Item $tmp -Recurse -Force
   Write-Host "installed: $ffmpeg"
 }
 
 # ---------------------------------------------------------------- 2/4 whisper
-Log '2/4 whisper engine'
-$whisper = Get-ChildItem $EngDir -Recurse -Filter 'whisper*.exe' -ErrorAction SilentlyContinue |
-           Select-Object -First 1
-if ($whisper) {
-  Write-Host "already installed: $($whisper.FullName)"
-} else {
-  Write-Host 'Fetching the latest self-contained Whisper build...'
-  $api = 'https://api.github.com/repos/Purfview/whisper-standalone-win/releases/latest'
-  try {
-    $rel   = Invoke-RestMethod -Uri $api -UseBasicParsing -Headers @{ 'User-Agent' = 'whisper-generator' }
-    $asset = $rel.assets | Where-Object { $_.name -match 'XXL.*\.7z$|Windows.*\.zip$' } | Select-Object -First 1
-  } catch { $asset = $null }
-
-  if (-not $asset) {
-    Write-Warning @"
-Could not resolve a download automatically.
-Install the engine by hand, then re-run this script:
-  1. Open https://github.com/Purfview/whisper-standalone-win/releases
-  2. Download the Faster-Whisper build for Windows with CUDA support
-  3. Extract it so that whisper-faster.exe sits inside:
-       $EngDir
-The CUDA DLLs (cublas64_*.dll, cudnn*.dll) MUST stay in the same folder
-as the .exe. Windows resolves them from the executable's own directory.
-"@
-  } else {
-    $pkg = Join-Path $env:TEMP $asset.name
-    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $pkg -UseBasicParsing
-    if ($pkg -like '*.zip') {
-      Expand-Archive -Path $pkg -DestinationPath $EngDir -Force
-      Remove-Item $pkg -Force
-      Write-Host "installed into: $EngDir"
-    } else {
-      Write-Warning "Downloaded $pkg. Extract it into $EngDir with 7-Zip, then re-run this script."
-    }
-  }
-  $whisper = Get-ChildItem $EngDir -Recurse -Filter 'whisper*.exe' -ErrorAction SilentlyContinue |
-             Select-Object -First 1
+Log '2/4 whisper-ctranslate2'
+$venv = Join-Path $Root 'venv'
+$python = Join-Path $venv 'Scripts\python.exe'
+$whisper = Join-Path $venv 'Scripts\whisper-ctranslate2.exe'
+if (-not (Test-Path $python)) {
+  & py -3.11 -m venv $venv
+  if ($LASTEXITCODE -ne 0) { throw 'Could not create the Whisper Python environment.' }
 }
+& $python -m pip install 'whisper-ctranslate2==0.5.8' 'nvidia-cublas-cu12' 'nvidia-cudnn-cu12>=9,<10'
+if ($LASTEXITCODE -ne 0) { throw 'Whisper installation failed.' }
+if (-not (Test-Path $whisper)) { throw 'Whisper executable was not installed.' }
+
+# Python 3.8+ requires explicit DLL directories for extension modules.
+# Create only our own startup hook and retain handles for the whole process.
+$hook = Join-Path $venv 'Lib\site-packages\wg-cuda.pth'
+if (-not (Test-Path $hook)) {
+  $hookLine = "import os,sys,glob; sys._wg_cuda_dirs=[os.add_dll_directory(p) for p in glob.glob(os.path.join(sys.prefix,'Lib','site-packages','nvidia','*','bin')) if os.path.isdir(p)]"
+  [System.IO.File]::WriteAllText($hook, $hookLine + "`n", [System.Text.UTF8Encoding]::new($false))
+}
+& $whisper --help | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'Whisper was installed but could not start.' }
 
 # ---------------------------------------------------------------- 3/4 .env
 Log '3/4 .env'
@@ -96,16 +81,20 @@ function Add-EnginePath($name, $path) {
   Write-Host "added $name to .env"
 }
 Add-EnginePath 'WG_FFMPEG_PATH' $ffmpeg
-if ($whisper) { Add-EnginePath 'WG_WHISPER_PATH' $whisper.FullName }
+Add-EnginePath 'WG_WHISPER_PATH' $whisper
 
 # ---------------------------------------------------------------- 4/4 verify
 Log '4/4 verify'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
-  npm install --no-audit --no-fund | Out-Null
-  npm --prefix web install --no-audit --no-fund | Out-Null
-  npm run build
+  & npm.cmd install --no-audit --no-fund
+  if ($LASTEXITCODE -ne 0) { throw 'Server dependency installation failed.' }
+  & npm.cmd --prefix web install --no-audit --no-fund
+  if ($LASTEXITCODE -ne 0) { throw 'Web dependency installation failed.' }
+  & npm.cmd run build
+  if ($LASTEXITCODE -ne 0) { throw 'Application build failed.' }
   node dist/cli.js doctor
+  if ($LASTEXITCODE -ne 0) { throw 'Setup verification failed. Review the doctor checks above.' }
 } finally { Pop-Location }
 
 Write-Host ""

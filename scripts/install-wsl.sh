@@ -15,16 +15,23 @@ log() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 log "1/4 ffmpeg"
 if command -v ffmpeg >/dev/null 2>&1; then
   echo "already installed: $(command -v ffmpeg)"
+elif [ "$(uname -s)" = Darwin ]; then
+  if ! command -v brew >/dev/null 2>&1; then
+    echo "Install Homebrew or ffmpeg before running setup on macOS." >&2
+    exit 1
+  fi
+  brew install ffmpeg
 else
-  mkdir -p "$BIN" /tmp/wg-ffmpeg
-  cd /tmp/wg-ffmpeg
+  mkdir -p "$BIN" "$HOME/.wg/work"
+  tmp="$(mktemp -d "$HOME/.wg/work/wg-ffmpeg-XXXXXXXX")"
+  cd "$tmp"
   curl -fL --retry 3 -o ff.tar.xz "$FFMPEG_URL"
   tar xf ff.tar.xz
   src="$(find . -maxdepth 1 -type d -name 'ffmpeg-master*' | head -1)"
-  install -m755 "$src/bin/ffmpeg" "$BIN/ffmpeg"
-  install -m755 "$src/bin/ffprobe" "$BIN/ffprobe"
+  [ -e "$BIN/ffmpeg" ] || install -m755 "$src/bin/ffmpeg" "$BIN/ffmpeg"
+  [ -e "$BIN/ffprobe" ] || install -m755 "$src/bin/ffprobe" "$BIN/ffprobe"
   cd - >/dev/null
-  rm -rf /tmp/wg-ffmpeg
+  rm -rf "$tmp"
   echo "installed: $BIN/ffmpeg"
 fi
 case ":$PATH:" in
@@ -38,7 +45,7 @@ log "2/4 python venv at $VENV"
 echo "$("$VENV/bin/python" -V) ready"
 
 log "3/4 whisper-ctranslate2 + CUDA libs (~2.5 GB download, 3-10 min)"
-if "$VENV/bin/python" -c "import ctranslate2" >/dev/null 2>&1; then
+if [ -x "$VENV/bin/whisper-ctranslate2" ] && "$VENV/bin/whisper-ctranslate2" --help >/dev/null 2>&1; then
   echo "already installed"
 else
   # CTranslate2 runtime instead of PyTorch: ~1.5 GB instead of ~6.5 GB, ~4x
@@ -50,7 +57,9 @@ fi
 # so pip skips them and the GPU run dies with
 # "Library libcublas.so.12 is not found". Install them explicitly.
 # They land in site-packages/nvidia/*/lib; `wg` adds that to LD_LIBRARY_PATH.
-if "$VENV/bin/python" -c "import nvidia.cublas, nvidia.cudnn" >/dev/null 2>&1; then
+if [ "$(uname -s)" != Linux ]; then
+  echo "NVIDIA CUDA libraries are only installed on Linux"
+elif "$VENV/bin/python" -c "import nvidia.cublas, nvidia.cudnn" >/dev/null 2>&1; then
   echo "cuda libs already installed"
 else
   "$VENV/bin/pip" install nvidia-cublas-cu12 "nvidia-cudnn-cu12>=9,<10"

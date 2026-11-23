@@ -37,7 +37,9 @@ export const DEFAULT_CONFIG: Config = {
   browseRoot: "",
   // Prefer the managed venv; fall back to PATH for Windows-native installs.
   whisperPath: existsSync(VENV_WHISPER) ? VENV_WHISPER : "whisper",
-  ffmpegPath: "ffmpeg",
+  ffmpegPath: existsSync(join(homedir(), ".local", "bin", "ffmpeg"))
+    ? join(homedir(), ".local", "bin", "ffmpeg")
+    : "ffmpeg",
   // Whisper reads video directly through ffmpeg; extraction only pays off when
   // re-running transcription on the same source or reading from a slow drive.
   extractAudio: false,

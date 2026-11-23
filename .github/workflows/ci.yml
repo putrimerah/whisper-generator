@@ -6,6 +6,21 @@ on:
   pull_request:
 
 jobs:
+  windows-installer-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Windows installer syntax
+        shell: powershell
+        run: |
+          $files = 'scripts/bootstrap-windows.ps1', 'scripts/install-windows.ps1'
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          }
+
   build:
     runs-on: ubuntu-latest
     steps:

@@ -346,7 +346,7 @@ export class JobRunner {
         this.children.delete(job.id);
         const hint =
           (err as NodeJS.ErrnoException).code === "ENOENT"
-            ? `${command.bin} not found. Run: bash scripts/install-wsl.sh`
+            ? `${command.bin} not found. Run: ${process.platform === "win32" ? "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-windows.ps1" : "make install"}`
             : err.message;
         rejectPromise(new Error(hint));
       });

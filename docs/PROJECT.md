@@ -109,17 +109,21 @@ The Settings screen says so on the Folders card.
 
 Installed by `scripts/install-wsl.sh` on WSL/Linux/macOS or
 `scripts/install-windows.ps1` on Windows. `scripts/bootstrap-windows.ps1`
-installs missing Node.js LTS and Git through `winget` before the Windows
+installs missing Node.js LTS, Git, and Python 3.11 through `winget` before the Windows
 installer runs. All scripts are user-level and idempotent.
 The Windows installer appends missing `WG_FFMPEG_PATH` and `WG_WHISPER_PATH`
-settings to `.env` after finding each executable. It preserves existing settings;
-rerun it after manually extracting a Whisper archive.
+settings to `.env` after finding each executable. It preserves existing settings.
+Windows installs `whisper-ctranslate2` and NVIDIA Python runtime packages in
+`~/.wg/venv`. A venv startup hook registers the pip-installed CUDA DLL folders.
+The model downloads on first use. macOS uses Homebrew when ffmpeg is missing,
+and does not install Linux NVIDIA packages. On POSIX, a managed
+`~/.local/bin/ffmpeg` is found even when that directory is not on PATH.
 
 ### Windows host
 
-Windows uses `.exe` engines. The CUDA DLLs must sit beside the Whisper
-executable. `buildEnv()` remains mandatory at every Whisper spawn but is a
-deliberate no-op on Windows.
+Windows runs the venv's `whisper-ctranslate2.exe`. The venv startup hook
+registers CUDA DLL directories for Python. `buildEnv()` remains mandatory at
+every Whisper spawn and is a no-op on Windows.
 
 ## 6. Code map
 
@@ -274,7 +278,7 @@ Same 45-second clip:
 | `unrecognized arguments: --output_format srt,vtt` | comma list | `outputFormatArg()` |
 | Outputs named `audio.16k.srt` | wav lacked the source stem | `wavPathFor(dir, stem)` |
 | Opaque I/O error writing to `/mnt` | NTFS-illegal characters in the stem | `sanitizeForWindows()` |
-| Whisper runs on CPU on Windows | CUDA DLLs not beside the executable | re-run the installer; check `doctor` |
+| Whisper runs on CPU on Windows | NVIDIA driver or CUDA runtime unavailable | re-run the installer; check `doctor` |
 | C: free space never grows after deleting WSL files | vhdx does not auto-shrink | `wsl --shutdown` then `wsl --manage Ubuntu --set-sparse true` |
 | OneDrive file unreadable from WSL | cloud-only placeholder | "Always keep on this device" |
 | Two jobs OOM the GPU | parallel transcription | queue depth 1 |
