@@ -105,9 +105,9 @@ privacy: ## Scan tracked files for this machine's usernames, tokens and media
 	 win=$$(ls /mnt/c/Users 2>/dev/null | grep -viE '^(public|default|default user|all users|defaultaccount|wdagutilityaccount|desktop.ini)$$' | head -1) ; \
 	 for term in "$$user" "$$win" ; do \
 	   [ -n "$$term" ] || continue ; \
-	   if git grep -niI -- "$$term" -- . >/dev/null 2>&1 ; then \
+	   if git grep -niIwF -- "$$term" -- . >/dev/null 2>&1 ; then \
 	     echo -e "\033[31mleak:\033[0m tracked files mention '$$term'" ; \
-	     git grep -niI -- "$$term" -- . | head -5 ; fail=1 ; fi ; \
+	     git grep -niIwF -- "$$term" -- . | head -5 ; fail=1 ; fi ; \
 	 done ; \
 	 if git grep -nE 'hf_[A-Za-z0-9]{20,}' -- . 2>/dev/null | grep -qvE 'your_token|x{8}' ; then \
 	   echo -e "\033[31mleak:\033[0m a HuggingFace token looks committed" ; fail=1 ; fi ; \

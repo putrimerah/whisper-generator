@@ -28,7 +28,7 @@ macOS, where the Windows-specific paths fall back to `~/Videos` or `~/Movies` an
 | | |
 |---|---|
 | Host | Windows 11, single 512 GB SSD, drive `C:` only |
-| Publishing | repo is public; `make privacy` scans tracked files for the local username, tokens and media before every commit |
+| Publishing | repo is public; `make privacy` scans tracked files for whole-word local usernames, tokens and media before every commit |
 | Dev + runtime | WSL2, distro `Ubuntu`, or native Windows |
 | GPU | RTX 4050 Laptop, **6 GB VRAM** — the binding constraint |
 | Recordings | `C:\Users\you\Videos` (local, not synced) |
