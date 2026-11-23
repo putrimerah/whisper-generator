@@ -161,6 +161,27 @@ If Windows installer cannot unpack a `.7z` Whisper download, install
 [7-Zip](https://www.7-zip.org/), extract it into `%USERPROFILE%\.wg\engine`,
 then run bootstrap command again. Keep CUDA DLLs beside Whisper `.exe`.
 
+#### Install from Git Bash
+
+Install [Git for Windows](https://git-scm.com/install/windows), then open Git
+Bash in the folder where you want the project. Clone the repository and run
+the Windows installer:
+
+```bash
+git clone https://github.com/putrimerah/whisper-generator.git
+cd whisper-generator
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-windows.ps1
+```
+
+The Windows requirements and `.7z` extraction instructions above also apply.
+The installer runs PowerShell; Git Bash does not require WSL. If setup installs
+Node.js, close and reopen Git Bash so it picks up the updated PATH. Return to
+the `whisper-generator` folder and start the app:
+
+```bash
+npm start
+```
+
 ### WSL2
 
 Required before setup:
