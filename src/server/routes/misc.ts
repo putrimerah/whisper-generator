@@ -33,7 +33,7 @@ export function registerMiscRoutes(router: Router, state: AppState): void {
     return listDirectory(path, {
       dirsOnly,
       showHidden,
-      extraRoots: [state.config.outputRoot, state.projectDir],
+      extraRoots: [state.config.outputRoot, state.config.browseRoot, state.projectDir],
     });
   });
 
@@ -48,7 +48,7 @@ export function registerMiscRoutes(router: Router, state: AppState): void {
     if (typeof body.path !== "string" || body.path.trim() === "") {
       throw badRequest("`path` is required");
     }
-    return resolveUserPath(body.path);
+    return resolveUserPath(body.path, [state.config.outputRoot, state.config.browseRoot, state.projectDir]);
   });
 
   router.get("/api/probe", async (ctx: Ctx) => {

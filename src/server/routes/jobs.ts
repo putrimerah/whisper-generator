@@ -60,7 +60,7 @@ export function registerJobRoutes(
     if (typeof body.input !== "string" || body.input.trim() === "") {
       throw badRequest("`input` is required");
     }
-    const input = assertAllowed(body.input, [state.config.outputRoot, state.projectDir]);
+    const input = assertAllowed(body.input, [state.config.outputRoot, state.config.browseRoot, state.projectDir]);
     if (!existsSync(input) || !statSync(input).isFile()) {
       throw badRequest(`input is not a file: ${input}`);
     }

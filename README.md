@@ -149,10 +149,22 @@ For GPU transcription, install a current NVIDIA display driver before setup.
 CPU-only mode also works. CUDA Toolkit, Python, WSL, and administrator rights
 are not required.
 
-After setup, start app with:
+After setup, start the app from the repository folder:
 
 ```powershell
-npm start
+npm.cmd start
+```
+
+If PowerShell says `npm.cmd` is not recognized after Node.js was installed,
+the current window may still have the old PATH. Close PowerShell, open a new
+window, and return to the repository folder. Alternatively, refresh PATH in
+the current window and start the app:
+
+```powershell
+$env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+node --version
+npm.cmd --version
+npm.cmd start
 ```
 
 The installer stores ffmpeg and Whisper under `%USERPROFILE%\.wg`.
