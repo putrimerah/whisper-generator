@@ -168,6 +168,8 @@ npm.cmd start
 ```
 
 The installer stores ffmpeg and Whisper under `%USERPROFILE%\.wg`.
+It adds `WG_FFMPEG_PATH` and `WG_WHISPER_PATH` to `.env` when the executables
+exist and the settings are absent. Existing settings are left unchanged.
 
 If Windows installer cannot unpack a `.7z` Whisper download, install
 [7-Zip](https://www.7-zip.org/), extract it into `%USERPROFILE%\.wg\engine`,

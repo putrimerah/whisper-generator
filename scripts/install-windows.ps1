@@ -74,19 +74,29 @@ as the .exe. Windows resolves them from the executable's own directory.
 
 # ---------------------------------------------------------------- 3/4 .env
 Log '3/4 .env'
-$envFile = Join-Path $PSScriptRoot '..\.env' | Resolve-Path -ErrorAction SilentlyContinue
-if (-not $envFile) {
-  $envPath = Join-Path (Split-Path $PSScriptRoot -Parent) '.env'
+$envPath = Join-Path (Split-Path $PSScriptRoot -Parent) '.env'
+if (-not (Test-Path $envPath)) {
   $example = Join-Path (Split-Path $PSScriptRoot -Parent) '.env.example'
   if (Test-Path $example) { Copy-Item $example $envPath }
   else { New-Item -ItemType File -Path $envPath -Force | Out-Null }
-  Add-Content $envPath ""
-  Add-Content $envPath "WG_FFMPEG_PATH=$ffmpeg"
-  if ($whisper) { Add-Content $envPath "WG_WHISPER_PATH=$($whisper.FullName)" }
   Write-Host "created .env -- edit it to change the default folders"
-} else {
-  Write-Host ".env already exists; not modified. Check WG_FFMPEG_PATH and WG_WHISPER_PATH by hand."
 }
+
+# Append only missing settings. Keep existing user configuration intact,
+# including explicit empty values, and do not record a missing executable.
+function Add-EnginePath($name, $path) {
+  if (-not $path -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { return }
+  $content = [System.IO.File]::ReadAllText($envPath)
+  if ($content -match "(?m)^\s*(?:export\s+)?$name\s*=") {
+    Write-Host "$name already set in .env; left unchanged"
+    return
+  }
+  $line = "`r`n$name=`"$path`"`r`n"
+  [System.IO.File]::AppendAllText($envPath, $line, [System.Text.UTF8Encoding]::new($false))
+  Write-Host "added $name to .env"
+}
+Add-EnginePath 'WG_FFMPEG_PATH' $ffmpeg
+if ($whisper) { Add-EnginePath 'WG_WHISPER_PATH' $whisper.FullName }
 
 # ---------------------------------------------------------------- 4/4 verify
 Log '4/4 verify'

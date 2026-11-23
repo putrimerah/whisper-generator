@@ -111,6 +111,9 @@ Installed by `scripts/install-wsl.sh` on WSL/Linux/macOS or
 `scripts/install-windows.ps1` on Windows. `scripts/bootstrap-windows.ps1`
 installs missing Node.js LTS and Git through `winget` before the Windows
 installer runs. All scripts are user-level and idempotent.
+The Windows installer appends missing `WG_FFMPEG_PATH` and `WG_WHISPER_PATH`
+settings to `.env` after finding each executable. It preserves existing settings;
+rerun it after manually extracting a Whisper archive.
 
 ### Windows host
 
