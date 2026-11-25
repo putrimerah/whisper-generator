@@ -9,13 +9,16 @@ import type { Command, ExecutionPlan, Host } from "./types.ts";
  * pip ships cuBLAS/cuDNN inside site-packages/nvidia/<pkg>/lib, which the
  * dynamic loader does not search. CTranslate2 then dies with
  * "Library libcublas.so.12 is not found". Resolve those directories from the
- * venv that owns the CLI and prepend them to LD_LIBRARY_PATH.
+ * venv that owns the CLI and prepend them to LD_LIBRARY_PATH on POSIX or
+ * PATH on Windows, where CTranslate2 loads the DLLs by name.
  */
 export function cudaLibraryPath(whisperPath: string, host: Host = detectHost()): string[] {
-  // Windows resolves a DLL's dependencies from the executable's own folder,
-  // and Python 3.8+ ignores PATH for extension modules, so there is nothing
-  // useful to inject. The DLLs must be installed beside the executable.
-  if (host === "windows") return [];
+  if (host === "windows") {
+    if (!whisperPath.includes("/") && !whisperPath.includes("\\")) return [];
+    const nvidia = join(dirname(dirname(whisperPath)), "Lib", "site-packages", "nvidia");
+    if (!existsSync(nvidia)) return [];
+    return readdirSync(nvidia).map((pkg) => join(nvidia, pkg, "bin")).filter(existsSync);
+  }
   if (!whisperPath.includes("/")) return [];
   const venvRoot = dirname(dirname(whisperPath));
   const libRoot = join(venvRoot, "lib");
@@ -33,6 +36,13 @@ export function cudaLibraryPath(whisperPath: string, host: Host = detectHost()):
 }
 
 export function buildEnv(whisperPath: string, host: Host = detectHost()): NodeJS.ProcessEnv {
+  if (host === "windows") {
+    const env: NodeJS.ProcessEnv = { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" };
+    const dirs = cudaLibraryPath(whisperPath, host);
+    const pathKey = Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "Path";
+    if (dirs.length > 0) env[pathKey] = [...dirs, env[pathKey] ?? ""].join(";");
+    return env;
+  }
   const dirs = cudaLibraryPath(whisperPath, host);
   if (dirs.length === 0) return process.env;
   const existing = process.env.LD_LIBRARY_PATH;

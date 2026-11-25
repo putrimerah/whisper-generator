@@ -20,6 +20,17 @@ jobs:
             [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
             if ($errors.Count) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
           }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install and verify Windows runtime
+        shell: powershell
+        run: |
+          $env:PYTHONIOENCODING = 'cp1252'
+          .\scripts\install-windows.ps1
 
   build:
     runs-on: ubuntu-latest

@@ -113,6 +113,8 @@ installs missing Node.js LTS, Git, and Python 3.11 through `winget` before the W
 installer runs. All scripts are user-level and idempotent.
 The Windows installer appends missing `WG_FFMPEG_PATH` and `WG_WHISPER_PATH`
 settings to `.env` after finding each executable. It preserves existing settings.
+When the Whisper startup check fails, setup reports its exit code and command;
+the executable's stderr contains the underlying error.
 Windows installs `whisper-ctranslate2` and NVIDIA Python runtime packages in
 `~/.wg/venv`. A venv startup hook registers the pip-installed CUDA DLL folders.
 The model downloads on first use. macOS uses Homebrew when ffmpeg is missing,
@@ -122,8 +124,12 @@ and does not install Linux NVIDIA packages. On POSIX, a managed
 ### Windows host
 
 Windows runs the venv's `whisper-ctranslate2.exe`. The venv startup hook
-registers CUDA DLL directories for Python. `buildEnv()` remains mandatory at
-every Whisper spawn and is a no-op on Windows.
+registers CUDA DLL directories for Python, and setup and `buildEnv()` add them
+to `PATH` for CTranslate2's runtime DLL loading. Setup verifies that cuBLAS and
+cuDNN can actually load. Windows setup and `buildEnv()` also set
+`PYTHONUTF8=1` and `PYTHONIOENCODING=utf-8`, so redirected help and transcript
+output do not fail on legacy Windows code pages. Pass `buildEnv()` to every
+Whisper spawn.
 
 ## 6. Code map
 
@@ -139,7 +145,7 @@ every Whisper spawn and is a no-op on Windows.
 | `pipeline.ts` | builds ffmpeg and Whisper argv; `outputFormatArg()` (one value or `all`, never a comma list) |
 | `platform.ts` | host detection, `normalizeUserPath()`, `isAbsoluteUserPath()`, `hasWindowsFilesystem()`; `toWslPath()` delegates to `normalizeUserPath()` |
 | `shell.ts` | PowerShell/POSIX quoting, script rendering for `wg script` |
-| `exec.ts` | spawning, **`buildEnv()`** CUDA library injection on Linux and no-op on Windows |
+| `exec.ts` | spawning, **`buildEnv()`** CUDA library paths and UTF-8 settings on Windows |
 | `meeting.ts` | `meeting.json` sidecar |
 | `doctor.ts` | environment checks incl. VRAM vs model |
 

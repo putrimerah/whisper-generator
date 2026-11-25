@@ -3,6 +3,10 @@
 # No administrator rights needed. Safe to re-run; each step is skipped when
 # already satisfied.
 $ErrorActionPreference = 'Stop'
+# Whisper's help and transcript output contain characters outside Windows'
+# default legacy code pages, including when stdout is redirected.
+$env:PYTHONUTF8 = '1'
+$env:PYTHONIOENCODING = 'utf-8'
 
 $Root    = Join-Path $env:USERPROFILE '.wg'
 $BinDir  = Join-Path $Root 'bin'
@@ -54,8 +58,21 @@ if (-not (Test-Path $hook)) {
   $hookLine = "import os,sys,glob; sys._wg_cuda_dirs=[os.add_dll_directory(p) for p in glob.glob(os.path.join(sys.prefix,'Lib','site-packages','nvidia','*','bin')) if os.path.isdir(p)]"
   [System.IO.File]::WriteAllText($hook, $hookLine + "`n", [System.Text.UTF8Encoding]::new($false))
 }
+$nvidia = Join-Path $venv 'Lib\site-packages\nvidia'
+$dllDirs = @(Get-ChildItem -Path $nvidia -Directory | ForEach-Object {
+  $bin = Join-Path $_.FullName 'bin'
+  if (Test-Path $bin -PathType Container) { $bin }
+})
+if ($dllDirs.Count -gt 0) { $env:Path = ($dllDirs -join ';') + ';' + $env:Path }
 & $whisper --help | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'Whisper was installed but could not start.' }
+if ($LASTEXITCODE -ne 0) {
+  $code = $LASTEXITCODE
+  throw "Whisper startup failed (exit code $code). Run & `"$whisper`" --help and check the error printed above."
+}
+if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
+  & $python -c "import ctypes; ctypes.WinDLL('cublas64_12.dll'); ctypes.WinDLL('cudnn64_9.dll'); print('CUDA DLLs load successfully')"
+  if ($LASTEXITCODE -ne 0) { throw 'CUDA libraries could not be loaded; check the error above.' }
+}
 
 # ---------------------------------------------------------------- 3/4 .env
 Log '3/4 .env'

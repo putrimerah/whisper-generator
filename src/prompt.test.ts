@@ -3,6 +3,13 @@ import assert from "node:assert/strict";
 import { buildPrompt, estimateTokens, PROMPT_TOKEN_BUDGET } from "./prompt.ts";
 import { quotePowerShell, quotePosix, renderCommand } from "./shell.ts";
 import { isOnWindowsMount, pickWindowsUser, sanitizeForWindows, toWslPath } from "./platform.ts";
+import { buildEnv } from "./exec.ts";
+
+test("Windows Whisper uses UTF-8 even with legacy output encoding", () => {
+  const env = buildEnv("C:\\example\\whisper-ctranslate2.exe", "windows");
+  assert.equal(env.PYTHONUTF8, "1");
+  assert.equal(env.PYTHONIOENCODING, "utf-8");
+});
 import type { ExecutionPlan } from "./types.ts";
 
 test("prompt keeps participants and glossary last", () => {
