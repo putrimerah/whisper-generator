@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import { buildEnv } from "../exec.ts";
 import { buildMeetingRecord, MEETING_FILENAME, writeMeetingRecord } from "../meeting.ts";
 import { ffmpegCommand, isAudio, stemOf, whisperCommand } from "../pipeline.ts";
@@ -28,6 +29,22 @@ const FFMPEG_TIME = /time=(\d+):(\d{2}):(\d{2})\.(\d+)/;
 
 const PROGRESS_INTERVAL_MS = 500;
 const RATE_WINDOW_MS = 30_000;
+
+/** Reassemble output records split across process chunks, including tqdm's CR updates. */
+export function createLineReader(onLine: (line: string) => void): { write(chunk: Buffer): void; end(): void } {
+  const decoder = new StringDecoder("utf8");
+  let pending = "";
+  const consume = (text: string) => {
+    pending += text;
+    const lines = pending.split(/[\r\n]/);
+    pending = lines.pop() ?? "";
+    for (const line of lines) if (line.trim()) onLine(line.trim());
+  };
+  return {
+    write(chunk) { consume(decoder.write(chunk)); },
+    end() { consume(decoder.end()); if (pending.trim()) onLine(pending.trim()); pending = ""; },
+  };
+}
 
 export class JobRunner {
   private readonly listeners = new Set<EventListener>();
@@ -146,7 +163,9 @@ export class JobRunner {
         job = this.store.update(job.id, { mediaPath });
       }
 
-      job = this.setState(job, "transcribing");
+      job = this.setState(job, "transcribing", {
+        progress: { stage: "transcribing", percent: 0, processedSeconds: 0, totalSeconds: duration, etaSeconds: null },
+      });
       const options: RunOptions = { ...job.options, input: mediaPath, outDir: job.outDir };
       await this.spawnStage(
         job,
@@ -171,6 +190,7 @@ export class JobRunner {
           wordTimestampFallback: true,
           options: { ...job.options, wordTimestamps: false },
           state: "transcribing",
+          progress: { stage: "transcribing", percent: 0, processedSeconds: 0, totalSeconds: duration, etaSeconds: null },
         });
         await this.spawnStage(
           job,
@@ -276,6 +296,7 @@ export class JobRunner {
         stdio: ["ignore", "pipe", "pipe"],
         env: buildEnv(this.config.whisperPath),
         detached: true,
+        windowsHide: true,
         shell: needsShell,
       });
       this.children.set(job.id, child);
@@ -315,32 +336,27 @@ export class JobRunner {
         this.emit({ jobId: job.id, type: "progress", data: progress });
       };
 
-      const handle = (chunk: Buffer, streamName: "stdout" | "stderr") => {
-        const text = chunk.toString("utf8");
-        for (const raw of text.split(/[\r\n]/)) {
-          const line = raw.trim();
-          if (line === "") continue;
-
-          const ratio = TQDM_RATIO.exec(line);
-          const percent = TQDM_PERCENT.exec(line);
-          if (percent && ratio) {
-            pushProgress(Number(ratio[1]), Number(percent[1]));
-            continue;
-          }
-          const ff = FFMPEG_TIME.exec(line);
-          if (ff) {
-            const seconds =
-              Number(ff[1]) * 3600 + Number(ff[2]) * 60 + Number(ff[3]) + Number(`0.${ff[4]}`);
-            pushProgress(seconds);
-            continue;
-          }
-          if (DETECTED_LANG.test(line)) this.log(job, streamName, line);
-          else if (!percent) this.log(job, streamName, line);
+      const handleLine = (line: string, streamName: "stdout" | "stderr") => {
+        const ratio = TQDM_RATIO.exec(line);
+        const percent = TQDM_PERCENT.exec(line);
+        if (percent && ratio) {
+          pushProgress(Number(ratio[1]), Number(percent[1]));
+          return;
         }
+        const ff = FFMPEG_TIME.exec(line);
+        if (ff) {
+          const seconds =
+            Number(ff[1]) * 3600 + Number(ff[2]) * 60 + Number(ff[3]) + Number(`0.${ff[4]}`);
+          pushProgress(seconds);
+          return;
+        }
+        if (DETECTED_LANG.test(line)) this.log(job, streamName, line);
+        else if (!percent) this.log(job, streamName, line);
       };
-
-      child.stdout?.on("data", (c: Buffer) => handle(c, "stdout"));
-      child.stderr?.on("data", (c: Buffer) => handle(c, "stderr"));
+      const stdout = createLineReader((line) => handleLine(line, "stdout"));
+      const stderr = createLineReader((line) => handleLine(line, "stderr"));
+      child.stdout?.on("data", (c: Buffer) => stdout.write(c));
+      child.stderr?.on("data", (c: Buffer) => stderr.write(c));
 
       child.on("error", (err) => {
         this.children.delete(job.id);
@@ -352,6 +368,8 @@ export class JobRunner {
       });
 
       child.on("close", (code, signal) => {
+        stdout.end();
+        stderr.end();
         this.children.delete(job.id);
         void processed;
         if (this.cancelled.has(job.id)) {

@@ -202,6 +202,9 @@ queued → extracting → transcribing → verifying → cleaning → done
 ```
 
 - `cleaning` always runs, including on failure and cancellation.
+- Extraction and transcription report separate progress. The runner reassembles
+  process output split across chunks before parsing progress or logging it.
+- Windows child processes run without opening a separate console window.
 - `verifying` requires a non-empty `.txt` or `.srt`, and valid JSON if a
   `.json` exists. This is what catches the exit-code lie.
 - If `--word_timestamps` produced nothing, the runner retries once without it

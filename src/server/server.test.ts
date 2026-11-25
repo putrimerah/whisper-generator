@@ -16,6 +16,7 @@ import { Router } from "./router.ts";
 import { buildAiMarkdown, groupSegments, estimateTokens as estimateAiTokens } from "./aiExport.ts";
 import { createZip, crc32 } from "./zip.ts";
 import { bucketPeaks, RmsAccumulator } from "./peaks.ts";
+import { createLineReader } from "./runner.ts";
 import type { Job } from "./jobTypes.ts";
 import type { RunOptions } from "../types.ts";
 
@@ -35,6 +36,33 @@ const OPTIONS: RunOptions = {
   diarize: false,
   speakerCount: 0,
 };
+
+test("process output reassembles split progress and UTF-8 across chunks", () => {
+  const lines: string[] = [];
+  const reader = createLineReader((line) => lines.push(line));
+  reader.write(Buffer.from("size= 1024KiB ti"));
+  reader.write(Buffer.from("me=00:01:23.45\r5%|##| 180/3938\r"));
+  const message = Buffer.from("Detected language '日本語'\nlast line");
+  const split = message.indexOf(Buffer.from("日")) + 1;
+  reader.write(message.subarray(0, split));
+  reader.write(message.subarray(split));
+  reader.end();
+  assert.deepEqual(lines, [
+    "size= 1024KiB time=00:01:23.45",
+    "5%|##| 180/3938",
+    "Detected language '日本語'",
+    "last line",
+  ]);
+});
+
+test("process output accepts CRLF, standalone CR, and unterminated final lines", () => {
+  const lines: string[] = [];
+  const reader = createLineReader((line) => lines.push(line));
+  reader.write(Buffer.from("first\r"));
+  reader.write(Buffer.from("\nsecond\nthird\rfourth"));
+  reader.end();
+  assert.deepEqual(lines, ["first", "second", "third", "fourth"]);
+});
 
 function tempStore(): { store: JobStore; file: string } {
   const dir = mkdtempSync(join(tmpdir(), "wg-store-"));
